@@ -2,6 +2,12 @@
 
 Web app educativa per imparare regioni italiane, capoluoghi, province, confini e collegamenti geografici tramite missioni progressive.
 
+## Link pubblico
+
+GitHub Pages: https://lori2003.github.io/RegioniItalia/
+
+Il codice sorgente sta su `main`; la versione pubblicata da GitHub Pages sta sul branch `gh-pages`.
+
 ## Funzioni principali
 
 - Login semplice con nome autorizzato: `Lorenzo`.

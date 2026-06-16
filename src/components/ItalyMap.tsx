@@ -37,7 +37,7 @@ export function ItalyMap({
 
   useEffect(() => {
     let alive = true;
-    fetch('/italy-regions.geojson')
+    fetch(`${import.meta.env.BASE_URL}italy-regions.geojson`)
       .then((response) => response.json())
       .then((data: GeoCollection) => {
         if (alive) setGeoData(data);
