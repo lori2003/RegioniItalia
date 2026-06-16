@@ -16,7 +16,6 @@ export const PLAYER_NAME = 'Lorenzo' as const;
 /** Ripetizione spaziata (Leitner): giorni di attesa per casella 0..5. */
 export const LEITNER_INTERVALS_DAYS = [0, 1, 3, 7, 16, 35] as const;
 export const MAX_BOX = LEITNER_INTERVALS_DAYS.length - 1;
-export const NEW_CARDS_PER_DAY = 8;
 export const SESSION_SIZE = 20;
 
 /** Modalita che riguardano tutte le 20 regioni: base per la padronanza sulla mappa. */
@@ -263,20 +262,16 @@ function isCardDue(card: MemoryCard, now = Date.now()) {
   return new Date(card.due).getTime() <= now;
 }
 
-export function remainingNewToday(progress: GameProgress) {
-  const used = progress.newCardsDate === todayKey() ? progress.newCardsToday : 0;
-  return Math.max(0, NEW_CARDS_PER_DAY - used);
-}
-
 export type ReviewSession = {
   queue: string[];
   dueCount: number;
-  newAvailable: number;
+  newInSession: number;
+  unseenTotal: number;
   totalCards: number;
   masteredCount: number;
 };
 
-/** Costruisce la sessione di ripasso: scadute (piu vecchie prima) + nuove col tetto giornaliero. */
+/** Costruisce la sessione: scadute (piu vecchie prima) + nuove fino a riempire la sessione. */
 export function buildReviewSession(progress: GameProgress): ReviewSession {
   const now = Date.now();
   const allKeys = getAllCardKeys();
@@ -298,16 +293,17 @@ export function buildReviewSession(progress: GameProgress): ReviewSession {
     return new Date(ca.due).getTime() - new Date(cb.due).getTime() || ca.box - cb.box;
   });
 
-  const newAvailable = Math.min(remainingNewToday(progress), fresh.length);
   const dueSlice = due.slice(0, SESSION_SIZE);
-  const newToAdd = Math.min(newAvailable, Math.max(0, SESSION_SIZE - dueSlice.length));
-  const queue = shuffle([...dueSlice, ...shuffle(fresh).slice(0, newToAdd)]);
+  const newToAdd = Math.min(fresh.length, Math.max(0, SESSION_SIZE - dueSlice.length));
+  const newCards = shuffle(fresh).slice(0, newToAdd);
+  const queue = shuffle([...dueSlice, ...newCards]);
 
   const cards = Object.values(progress.memory ?? {});
   return {
     queue,
     dueCount: due.length,
-    newAvailable,
+    newInSession: newCards.length,
+    unseenTotal: fresh.length,
     totalCards: allKeys.length,
     masteredCount: cards.filter((card) => card.box >= MAX_BOX).length,
   };

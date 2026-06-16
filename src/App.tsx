@@ -38,11 +38,9 @@ import {
   getMasteryMap,
   getRegion,
   isAnswerCorrect,
-  NEW_CARDS_PER_DAY,
   normalizeAnswer,
   parseCardKey,
   PLAYER_NAME,
-  remainingNewToday,
 } from './lib/game';
 import { loadProgress, refreshCloudProgress, saveProgress } from './lib/progressStore';
 import type {
@@ -706,9 +704,10 @@ function HomeView({
   onReset,
 }: HomeViewProps) {
   const dueCount = review?.dueCount ?? 0;
-  const newAvailable = review?.newAvailable ?? 0;
+  const newInSession = review?.newInSession ?? 0;
   const toReview = review?.queue.length ?? 0;
-  const remainingNew = remainingNewToday(progress);
+  const totalCards = review?.totalCards ?? 0;
+  const seenCards = totalCards - (review?.unseenTotal ?? totalCards);
   const errorBox = progress.reviewBox ?? [];
 
   return (
@@ -722,26 +721,27 @@ function HomeView({
             <div>
               <h2>Ripasso del giorno</h2>
               <p>
-                {newAvailable > 0
-                  ? `Oggi impari ${newAvailable} ${newAvailable === 1 ? 'regione nuova' : 'regioni nuove'}${dueCount > 0 ? ` e ne ripassi ${dueCount} in scadenza` : ''}.`
-                  : dueCount > 0
-                    ? `Hai ${dueCount} ${dueCount === 1 ? 'carta' : 'carte'} in scadenza da ripassare.`
-                    : 'Impara nuove regioni e ripassale al momento giusto.'}
+                {toReview > 0
+                  ? `Sessione di ${toReview} carte: ${newInSession} ${newInSession === 1 ? 'nuova' : 'nuove'}${dueCount > 0 ? ` e ${dueCount} in ripasso` : ''}.`
+                  : 'Hai studiato tutte le carte disponibili: nessun ripasso in scadenza ora.'}
               </p>
             </div>
           </div>
           <div className="action-metrics">
             <div>
-              <strong>{newAvailable}</strong>
-              <span>nuove da imparare</span>
+              <strong>{newInSession}</strong>
+              <span>nuove in sessione</span>
             </div>
             <div>
               <strong>{dueCount}</strong>
               <span>in scadenza</span>
             </div>
             <div>
-              <strong>{toReview}</strong>
-              <span>in sessione</span>
+              <strong>
+                {seenCards}
+                <small>/{totalCards}</small>
+              </strong>
+              <span>carte viste</span>
             </div>
           </div>
           {toReview > 0 ? (
@@ -751,8 +751,8 @@ function HomeView({
             </button>
           ) : (
             <p className="all-clear">
-              <CheckCircle2 size={16} /> Tutto in pari! Fino a {NEW_CARDS_PER_DAY} carte nuove al giorno
-              {remainingNew === 0 ? ' (limite di oggi raggiunto)' : ''}. Torna domani o allenati liberamente.
+              <CheckCircle2 size={16} /> Tutto in pari! Hai visto {seenCards}/{totalCards} carte e non ci sono ripassi
+              in scadenza. Torna più tardi o allenati liberamente.
             </p>
           )}
         </article>

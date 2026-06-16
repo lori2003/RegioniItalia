@@ -461,6 +461,12 @@ button:focus-visible {
   color: var(--ink);
 }
 
+.action-metrics strong small {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .action-metrics span {
   display: block;
   margin-top: 4px;
