@@ -14,7 +14,8 @@ Il codice sorgente sta su `main`; la versione pubblicata da GitHub Pages sta sul
 - Tre difficolta: facile con suggerimenti, medio con pochi aiuti, difficile senza suggerimenti.
 - Sei modalita: mappa cieca, capoluoghi, province, confini, viaggio e indizi culturali.
 - Mappa interattiva delle 20 regioni italiane.
-- Punteggio, serie, livelli, badge e regioni sbloccate.
+- Punteggio, serie, livelli, badge, regioni sbloccate e copertura viste/mancanti per modalita.
+- Le nuove missioni preferiscono regioni o tappe non ancora viste nel giro della modalita corrente.
 - Salvataggio su Supabase quando configurato, con fallback locale su `localStorage`.
 - Layout responsive per desktop e iPhone 15 Pro Max.
 
@@ -24,6 +25,10 @@ Il codice sorgente sta su `main`; la versione pubblicata da GitHub Pages sta sul
 npm install
 npm run dev
 ```
+
+Per provarla da telefono sulla stessa rete Wi-Fi, apri l'indirizzo `Network` mostrato da Vite, ad esempio
+`http://192.168.1.20:5173/`. In sviluppo la app usa `/`; il prefisso `/RegioniItalia/` resta solo per la build
+pubblicata su GitHub Pages.
 
 ## Configurazione Supabase
 

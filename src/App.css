@@ -89,15 +89,22 @@ button:disabled {
 
 .login-row button,
 .answer-form button,
-.secondary-action {
+.secondary-action,
+.outline-action,
+.danger-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: white;
-  background: var(--italia-blue);
   padding: 0 16px;
   white-space: nowrap;
+}
+
+.login-row button,
+.answer-form button,
+.secondary-action {
+  color: white;
+  background: var(--italia-blue);
 }
 
 .form-error {
@@ -281,6 +288,7 @@ button:disabled {
 
 .mission-description,
 .level-box p,
+.coverage-box p,
 .region-focus p,
 .sync-detail,
 .mode-stat {
@@ -338,6 +346,8 @@ button:disabled {
 .segmented button:hover,
 .mode-button:hover,
 .secondary-action:hover,
+.outline-action:hover,
+.danger-action:hover,
 .login-row button:hover,
 .answer-form button:hover {
   filter: brightness(0.96);
@@ -480,12 +490,14 @@ button:disabled {
 }
 
 .level-box,
+.coverage-box,
 .region-focus {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
 
-.level-heading {
+.level-heading,
+.coverage-heading {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -506,6 +518,10 @@ button:disabled {
   height: 100%;
   border-radius: inherit;
   background: var(--leaf);
+}
+
+.coverage-track span {
+  background: var(--italia-blue);
 }
 
 .region-focus h3 {
@@ -547,6 +563,24 @@ button:disabled {
   margin: 0;
 }
 
+.retest-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.outline-action {
+  border: 1px solid var(--line);
+  color: var(--italia-blue);
+  background: white;
+}
+
+.danger-action {
+  border: 1px solid #ef8a7e;
+  color: #9f2d20;
+  background: #fff0ee;
+}
+
 @media (max-width: 1160px) {
   .control-band,
   .game-grid {
@@ -574,6 +608,7 @@ button:disabled {
   }
 
   .level-box,
+  .coverage-box,
   .region-focus,
   .badge-list,
   .sync-detail,

@@ -54,6 +54,10 @@ export type MissionStats = {
   correct: number;
 };
 
+export type ModeCoverage = {
+  seenRegions: string[];
+};
+
 export type GameProgress = {
   playerName: 'Lorenzo';
   score: number;
@@ -68,6 +72,7 @@ export type GameProgress = {
   mistakes: Record<string, number>;
   modeStats: Record<GameModeId, MissionStats>;
   difficultyStats: Record<DifficultyId, MissionStats>;
+  modeCoverage: Record<GameModeId, ModeCoverage>;
   updatedAt: string;
 };
 

@@ -18,7 +18,7 @@ type GeoCollection = {
 type ItalyMapProps = {
   targetRegion?: string;
   selectedRegion?: string;
-  unlockedRegions: string[];
+  revealedRegions: string[];
   expectsMapClick: boolean;
   onRegionSelect: (regionName: string) => void;
 };
@@ -29,7 +29,7 @@ const HEIGHT = 660;
 export function ItalyMap({
   targetRegion,
   selectedRegion,
-  unlockedRegions,
+  revealedRegions,
   expectsMapClick,
   onRegionSelect,
 }: ItalyMapProps) {
@@ -90,12 +90,12 @@ export function ItalyMap({
     >
       <rect className="map-sea" x="0" y="0" width={WIDTH} height={HEIGHT} rx="8" />
       {paths.map((path) => {
-        const unlocked = unlockedRegions.includes(path.name);
+        const revealed = revealedRegions.includes(path.name);
         const selected = selectedRegion === path.name;
         const target = targetRegion === path.name;
         const className = [
           'map-region',
-          unlocked ? 'is-unlocked' : '',
+          revealed ? 'is-unlocked' : '',
           selected ? 'is-selected' : '',
           expectsMapClick && target ? 'is-target-candidate' : '',
         ]
@@ -122,7 +122,7 @@ export function ItalyMap({
       })}
       {paths.map((path) => {
         const [x, y] = path.centroid;
-        const showLabel = unlockedRegions.includes(path.name) || selectedRegion === path.name;
+        const showLabel = revealedRegions.includes(path.name) || selectedRegion === path.name;
         if (!showLabel) return null;
 
         return (

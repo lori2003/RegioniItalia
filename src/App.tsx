@@ -10,6 +10,7 @@ import {
   Map,
   MapPin,
   RefreshCw,
+  RotateCcw,
   Route,
   Trophy,
   XCircle,
@@ -23,13 +24,16 @@ import {
   applyMissionResult,
   BADGES,
   createChallenge,
+  createDefaultProgress,
   DIFFICULTIES,
   GAME_MODES,
   getLevelInfo,
+  getModeCoverageInfo,
   getRegion,
   isAnswerCorrect,
   normalizeAnswer,
   PLAYER_NAME,
+  resetModeCoverage,
 } from './lib/game';
 import { loadProgress, refreshCloudProgress, saveProgress } from './lib/progressStore';
 import type { Challenge, DifficultyId, GameModeId, GameProgress, SyncStatus } from './types';
@@ -57,18 +61,22 @@ function App() {
     [challenge.targetRegion, selectedRegion],
   );
   const modeStats = progress?.modeStats[mode];
+  const modeCoverage = useMemo(() => (progress ? getModeCoverageInfo(progress, mode) : null), [mode, progress]);
   const difficultySettings = DIFFICULTIES[difficulty];
   const requiresFreeText = !challenge.expectsMapClick && challenge.options.length === 0;
+  const isBlindMapRound = challenge.expectsMapClick && !feedback;
+  const revealedMapRegions = isBlindMapRound ? [] : progress?.unlockedRegions ?? [];
+  const targetMapRegion = feedback ? challenge.targetRegion : undefined;
 
-  const startMission = useCallback((nextMode = mode, nextDifficulty = difficulty) => {
+  const startMission = useCallback((nextMode = mode, nextDifficulty = difficulty, progressForSelection = progress) => {
     setMode(nextMode);
     setDifficulty(nextDifficulty);
-    setChallenge(createChallenge(nextMode, nextDifficulty));
+    setChallenge(createChallenge(nextMode, nextDifficulty, progressForSelection ?? undefined));
     setSecondsLeft(DIFFICULTIES[nextDifficulty].timeLimit);
     setFeedback(null);
     setTypedAnswer('');
     setSelectedRegion(undefined);
-  }, [mode, difficulty]);
+  }, [mode, difficulty, progress]);
 
   const persist = useCallback(async (nextProgress: GameProgress) => {
     setProgress(nextProgress);
@@ -147,6 +155,7 @@ function App() {
     const result = await loadProgress();
     localStorage.setItem('italia-quest-login', PLAYER_NAME);
     setProgress(result.progress);
+    startMission(mode, difficulty, result.progress);
     setSyncStatus(result.status);
     setIsLoadingProgress(false);
   }
@@ -159,6 +168,30 @@ function App() {
 
   function nextMission() {
     startMission(mode, difficulty);
+  }
+
+  function resetProgressAndRetest() {
+    const confirmed = window.confirm(
+      'Azzerare punteggio, badge e regioni sbloccate per rifare il test da zero?',
+    );
+    if (!confirmed) return;
+
+    const freshProgress = createDefaultProgress();
+    void persist(freshProgress);
+    startMission(mode, difficulty, freshProgress);
+  }
+
+  function restartModeCoverage() {
+    if (!progress) return;
+
+    const confirmed = window.confirm(
+      `Ricominciare il giro di ${GAME_MODES[mode].label}? Punteggio e badge restano, ma viste e mancanti ripartono da zero.`,
+    );
+    if (!confirmed) return;
+
+    const nextProgress = resetModeCoverage(progress, mode);
+    void persist(nextProgress);
+    startMission(mode, difficulty, nextProgress);
   }
 
   function handleRegionSelect(regionName: string) {
@@ -332,7 +365,7 @@ function App() {
           <div className="mission-actions">
             <button type="button" className="secondary-action" onClick={nextMission}>
               <RefreshCw size={18} />
-              Nuova missione
+              {feedback ? 'Ritesta modalita' : 'Nuova missione'}
             </button>
             <span className="points-note">+{difficultySettings.points} punti se corretta</span>
           </div>
@@ -340,9 +373,9 @@ function App() {
 
         <section className="map-panel" aria-label="Mappa">
           <ItalyMap
-            targetRegion={difficulty === 'facile' ? challenge.targetRegion : undefined}
+            targetRegion={targetMapRegion}
             selectedRegion={selectedRegion}
-            unlockedRegions={progress.unlockedRegions}
+            revealedRegions={revealedMapRegions}
             expectsMapClick={challenge.expectsMapClick}
             onRegionSelect={handleRegionSelect}
           />
@@ -384,6 +417,27 @@ function App() {
             </div>
           ) : null}
 
+          {modeCoverage ? (
+            <div className="coverage-box">
+              <div className="coverage-heading">
+                <span>{GAME_MODES[mode].label}</span>
+                <strong>
+                  {modeCoverage.seenCount}/{modeCoverage.total}
+                </strong>
+              </div>
+              <div className="progress-track coverage-track">
+                <span style={{ width: `${modeCoverage.percent}%` }} />
+              </div>
+              <p>
+                {modeCoverage.remainingCount === 0
+                  ? `Giro completo: hai visto tutte le ${modeCoverage.unitLabel}.`
+                  : `${modeCoverage.remainingCount} ${modeCoverage.unitLabel} mancanti. Prossime da coprire: ${modeCoverage.missingRegions
+                      .slice(0, 5)
+                      .join(', ')}${modeCoverage.missingRegions.length > 5 ? '...' : ''}.`}
+              </p>
+            </div>
+          ) : null}
+
           <div className="region-focus">
             <span className="control-label">Regione in focus</span>
             <h3>{activeRegion.shortName}</h3>
@@ -414,6 +468,20 @@ function App() {
           <p className="mode-stat">
             Questa modalita: {modeStats?.correct ?? 0}/{modeStats?.played ?? 0} corrette.
           </p>
+          <div className="retest-actions">
+            <button type="button" className="outline-action" onClick={nextMission}>
+              <RefreshCw size={17} />
+              Ritesta {GAME_MODES[mode].label}
+            </button>
+            <button type="button" className="outline-action" onClick={restartModeCoverage}>
+              <RotateCcw size={17} />
+              Ricomincia giro
+            </button>
+            <button type="button" className="danger-action" onClick={resetProgressAndRetest}>
+              <RotateCcw size={17} />
+              Riparti da zero
+            </button>
+          </div>
         </aside>
       </section>
     </main>

@@ -1,4 +1,4 @@
-import type { GameProgress, SyncStatus } from '../types';
+import type { GameModeId, GameProgress, SyncStatus } from '../types';
 import { createDefaultProgress, PLAYER_NAME } from './game';
 import { isSupabaseConfigured, supabase } from './supabase';
 
@@ -32,6 +32,14 @@ function writeLocalProgress(progress: GameProgress) {
 
 function normalizeProgress(progress: Partial<GameProgress>): GameProgress {
   const fallback = createDefaultProgress();
+  const modeCoverage = { ...fallback.modeCoverage };
+  (Object.keys(fallback.modeCoverage) as GameModeId[]).forEach((mode) => {
+    modeCoverage[mode] = {
+      ...fallback.modeCoverage[mode],
+      ...(progress.modeCoverage?.[mode] ?? {}),
+    };
+  });
+
   return {
     ...fallback,
     ...progress,
@@ -44,6 +52,7 @@ function normalizeProgress(progress: Partial<GameProgress>): GameProgress {
       ...fallback.difficultyStats,
       ...(progress.difficultyStats ?? {}),
     },
+    modeCoverage,
     mistakes: progress.mistakes ?? {},
     unlockedRegions: progress.unlockedRegions ?? [],
     badges: progress.badges ?? [],

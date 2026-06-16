@@ -1,5 +1,5 @@
 import { allProvinceNames, REGIONS } from '../data/regions';
-import type { Challenge, DifficultyId, GameModeId, GameProgress, RegionData } from '../types';
+import type { Challenge, DifficultyId, GameModeId, GameProgress, ModeCoverage, RegionData } from '../types';
 
 export const PLAYER_NAME = 'Lorenzo' as const;
 
@@ -137,6 +137,16 @@ export function createEmptyStats<T extends string>(keys: T[]): Record<T, { playe
   );
 }
 
+export function createEmptyCoverage<T extends string>(keys: T[]): Record<T, ModeCoverage> {
+  return keys.reduce(
+    (acc, key) => ({
+      ...acc,
+      [key]: { seenRegions: [] },
+    }),
+    {} as Record<T, ModeCoverage>,
+  );
+}
+
 export function createDefaultProgress(): GameProgress {
   return {
     playerName: PLAYER_NAME,
@@ -152,6 +162,7 @@ export function createDefaultProgress(): GameProgress {
     mistakes: {},
     modeStats: createEmptyStats(Object.keys(GAME_MODES) as GameModeId[]),
     difficultyStats: createEmptyStats(Object.keys(DIFFICULTIES) as DifficultyId[]),
+    modeCoverage: createEmptyCoverage(Object.keys(GAME_MODES) as GameModeId[]),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -177,6 +188,54 @@ function unique(items: string[]) {
   return [...new Set(items)];
 }
 
+function getJourneySteps() {
+  return JOURNEYS.flatMap((journey) => {
+    if (journey.route.length <= 1) {
+      return [
+        {
+          journey,
+          current: journey.route[0],
+          next: journey.route[0],
+        },
+      ];
+    }
+
+    return journey.route.slice(0, -1).map((current, index) => ({
+      journey,
+      current,
+      next: journey.route[index + 1],
+    }));
+  });
+}
+
+export function getModeCoverageTargets(mode: GameModeId) {
+  if (mode === 'viaggio') {
+    return unique(getJourneySteps().map((step) => step.next));
+  }
+
+  return REGIONS.map((region) => region.name);
+}
+
+function getSeenRegions(progress: GameProgress, mode: GameModeId) {
+  const validTargets = new Set(getModeCoverageTargets(mode));
+  return unique(progress.modeCoverage[mode]?.seenRegions ?? []).filter((regionName) => validTargets.has(regionName));
+}
+
+function pickRegionForMode(mode: GameModeId, progress?: GameProgress) {
+  const targets = getModeCoverageTargets(mode);
+  const seen = progress ? new Set(getSeenRegions(progress, mode)) : new Set<string>();
+  const unseenTargets = targets.filter((target) => !seen.has(target));
+  const targetName = randomItem(unseenTargets.length > 0 ? unseenTargets : targets);
+  return getRegion(targetName) ?? randomItem(REGIONS);
+}
+
+function pickJourneyStep(progress?: GameProgress) {
+  const steps = getJourneySteps();
+  const seen = progress ? new Set(getSeenRegions(progress, 'viaggio')) : new Set<string>();
+  const unseenSteps = steps.filter((step) => !seen.has(step.next));
+  return randomItem(unseenSteps.length > 0 ? unseenSteps : steps);
+}
+
 function optionsWith(correct: string, pool: string[], count: number) {
   if (count === 0) return [];
   const wrong = shuffle(pool.filter((item) => normalizeAnswer(item) !== normalizeAnswer(correct)));
@@ -187,6 +246,26 @@ function acceptedRegionAnswers(region: RegionData) {
   return unique([region.name, region.shortName, ...(region.aliases ?? [])]);
 }
 
+function createChallengeId() {
+  const cryptoApi = globalThis.crypto;
+
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+
+  if (typeof cryptoApi?.getRandomValues === 'function') {
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0'));
+    return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex
+      .slice(8, 10)
+      .join('')}-${hex.slice(10).join('')}`;
+  }
+
+  return `challenge-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function getRegion(name: string) {
   const normalized = normalizeAnswer(name);
   return REGIONS.find((region) =>
@@ -194,15 +273,15 @@ export function getRegion(name: string) {
   );
 }
 
-export function createChallenge(mode: GameModeId, difficulty: DifficultyId): Challenge {
-  const region = randomItem(REGIONS);
+export function createChallenge(mode: GameModeId, difficulty: DifficultyId, progress?: GameProgress): Challenge {
+  const region = pickRegionForMode(mode, progress);
   const settings = DIFFICULTIES[difficulty];
   const optionCount = settings.optionCount;
   const baseHints = region.hints.slice(0, settings.hints);
 
   if (mode === 'mappa') {
     return {
-      id: crypto.randomUUID(),
+      id: createChallengeId(),
       mode,
       prompt: `Trova ${region.shortName} sulla mappa.`,
       targetRegion: region.name,
@@ -217,7 +296,7 @@ export function createChallenge(mode: GameModeId, difficulty: DifficultyId): Cha
   if (mode === 'capoluoghi') {
     const reverse = Math.random() > 0.55;
     return {
-      id: crypto.randomUUID(),
+      id: createChallengeId(),
       mode,
       prompt: reverse
         ? `${region.capital} e il capoluogo di quale regione?`
@@ -237,7 +316,7 @@ export function createChallenge(mode: GameModeId, difficulty: DifficultyId): Cha
     const province = randomItem(region.provinces);
     const hardAnswers = region.provinces.flatMap((item) => [item.name, item.code]);
     return {
-      id: crypto.randomUUID(),
+      id: createChallengeId(),
       mode,
       prompt:
         optionCount > 0
@@ -259,7 +338,7 @@ export function createChallenge(mode: GameModeId, difficulty: DifficultyId): Cha
     const hasBorders = region.borders.length > 0;
     const border = hasBorders ? randomItem(region.borders) : 'Nessuna';
     return {
-      id: crypto.randomUUID(),
+      id: createChallengeId(),
       mode,
       prompt: hasBorders
         ? `Quale regione confina con ${region.shortName}?`
@@ -276,12 +355,12 @@ export function createChallenge(mode: GameModeId, difficulty: DifficultyId): Cha
   }
 
   if (mode === 'viaggio') {
-    const journey = randomItem(JOURNEYS);
-    const index = journey.route.length > 1 ? Math.floor(Math.random() * (journey.route.length - 1)) : 0;
-    const current = journey.route[index];
-    const next = journey.route[index + 1] ?? journey.route[0];
+    const step = pickJourneyStep(progress);
+    const journey = step.journey;
+    const current = step.current;
+    const next = step.next;
     return {
-      id: crypto.randomUUID(),
+      id: createChallengeId(),
       mode,
       prompt:
         journey.route.length > 1
@@ -297,7 +376,7 @@ export function createChallenge(mode: GameModeId, difficulty: DifficultyId): Cha
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: createChallengeId(),
     mode,
     prompt: `Indizio esplorazione: ${region.cultureClue}`,
     targetRegion: region.name,
@@ -325,6 +404,33 @@ export function getLevelInfo(progress: GameProgress) {
   };
 }
 
+export function getModeCoverageInfo(progress: GameProgress, mode: GameModeId) {
+  const targets = getModeCoverageTargets(mode);
+  const seenRegions = getSeenRegions(progress, mode);
+  const missingRegions = targets.filter((target) => !seenRegions.includes(target));
+
+  return {
+    unitLabel: mode === 'viaggio' ? 'tappe' : 'regioni',
+    seenRegions,
+    missingRegions,
+    seenCount: seenRegions.length,
+    remainingCount: missingRegions.length,
+    total: targets.length,
+    percent: targets.length > 0 ? Math.round((seenRegions.length / targets.length) * 100) : 0,
+  };
+}
+
+export function resetModeCoverage(progress: GameProgress, mode: GameModeId) {
+  const next: GameProgress = structuredClone(progress);
+  next.modeCoverage = {
+    ...createEmptyCoverage(Object.keys(GAME_MODES) as GameModeId[]),
+    ...(next.modeCoverage ?? {}),
+    [mode]: { seenRegions: [] },
+  };
+  next.updatedAt = new Date().toISOString();
+  return next;
+}
+
 export function applyMissionResult(
   progress: GameProgress,
   challenge: Challenge,
@@ -338,6 +444,12 @@ export function applyMissionResult(
   modeStat.played += 1;
   difficultyStat.played += 1;
   next.completedMissions += 1;
+
+  const modeTargets = new Set(getModeCoverageTargets(challenge.mode));
+  const modeCoverage = next.modeCoverage[challenge.mode] ?? { seenRegions: [] };
+  if (modeTargets.has(challenge.targetRegion) && !modeCoverage.seenRegions.includes(challenge.targetRegion)) {
+    modeCoverage.seenRegions.push(challenge.targetRegion);
+  }
 
   if (correct) {
     const points = DIFFICULTIES[difficulty].points;
@@ -360,6 +472,7 @@ export function applyMissionResult(
 
   next.modeStats[challenge.mode] = modeStat;
   next.difficultyStats[difficulty] = difficultyStat;
+  next.modeCoverage[challenge.mode] = modeCoverage;
   next.badges = computeBadges(next);
   next.updatedAt = new Date().toISOString();
   return next;
