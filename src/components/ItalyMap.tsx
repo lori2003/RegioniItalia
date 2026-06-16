@@ -21,7 +21,9 @@ type ItalyMapProps = {
   selectedRegion?: string;
   masteryByRegion: Record<string, MasteryLevel>;
   expectsMapClick: boolean;
-  hideLabels?: boolean;
+  /** Se true mostra i colori di padronanza e i nomi delle regioni note (home).
+   *  Se false la mappa resta neutra per non rivelare risposte (durante il gioco). */
+  revealMastery?: boolean;
   onRegionSelect: (regionName: string) => void;
 };
 
@@ -33,7 +35,7 @@ export function ItalyMap({
   selectedRegion,
   masteryByRegion,
   expectsMapClick,
-  hideLabels = false,
+  revealMastery = true,
   onRegionSelect,
 }: ItalyMapProps) {
   const [geoData, setGeoData] = useState<GeoCollection | null>(null);
@@ -98,7 +100,7 @@ export function ItalyMap({
         const target = targetRegion === path.name;
         const className = [
           'map-region',
-          `is-mastery-${mastery}`,
+          revealMastery ? `is-mastery-${mastery}` : '',
           selected ? 'is-selected' : '',
           target ? 'is-target-candidate' : '',
         ]
@@ -126,7 +128,11 @@ export function ItalyMap({
       {paths.map((path) => {
         const [x, y] = path.centroid;
         const known = (masteryByRegion[path.name] ?? 'new') !== 'new';
-        const showLabel = !hideLabels && (known || selectedRegion === path.name);
+        // In gioco (revealMastery=false) la mappa resta neutra: nessun nome,
+        // tranne la regione selezionata o quella corretta rivelata dopo la risposta.
+        const showLabel = revealMastery
+          ? known || selectedRegion === path.name
+          : selectedRegion === path.name || targetRegion === path.name;
         if (!showLabel) return null;
 
         return (

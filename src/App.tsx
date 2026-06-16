@@ -79,7 +79,6 @@ function App() {
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
-  const [currentCardKey, setCurrentCardKey] = useState<string | null>(null);
 
   const [mode, setMode] = useState<GameModeId>('mappa');
   const [freeDifficulty, setFreeDifficulty] = useState<DifficultyId>('facile');
@@ -107,7 +106,6 @@ function App() {
   );
   const difficultySettings = DIFFICULTIES[activeDifficulty];
   const requiresFreeText = !challenge.expectsMapClick && challenge.options.length === 0;
-  const isBlindMapRound = view === 'game' && challenge.expectsMapClick && !feedback;
   const targetMapRegion = feedback ? challenge.targetRegion : undefined;
 
   const persist = useCallback(async (nextProgress: GameProgress) => {
@@ -122,7 +120,6 @@ function App() {
     const diff = effectiveDifficulty(fromProgress, cardMode, regionName);
     setMode(cardMode);
     setActiveDifficulty(diff);
-    setCurrentCardKey(key);
     setChallenge(createChallenge(cardMode, diff, fromProgress, regionName));
     setSecondsLeft(DIFFICULTIES[diff].timeLimit);
     setFeedback(null);
@@ -145,7 +142,6 @@ function App() {
       if (!progress) return;
       setSessionKind('libero');
       setSessionQueue([]);
-      setCurrentCardKey(null);
       setMode(nextMode);
       setFreeDifficulty(nextDifficulty);
       setActiveDifficulty(nextDifficulty);
@@ -259,19 +255,13 @@ function App() {
       return;
     }
 
-    let queue = sessionQueue;
-    if (feedback && !feedback.correct && currentCardKey) {
-      queue = [...sessionQueue, currentCardKey];
-      setSessionQueue(queue);
-    }
-
     const nextIndex = sessionIndex + 1;
-    if (nextIndex >= queue.length) {
+    if (nextIndex >= sessionQueue.length) {
       setView('summary');
       return;
     }
     setSessionIndex(nextIndex);
-    loadCardChallenge(queue[nextIndex], progress);
+    loadCardChallenge(sessionQueue[nextIndex], progress);
   }
 
   function changeFreeMode(nextMode: GameModeId) {
@@ -548,7 +538,7 @@ function App() {
               selectedRegion={selectedRegion}
               masteryByRegion={masteryMap}
               expectsMapClick={challenge.expectsMapClick && !feedback}
-              hideLabels={isBlindMapRound}
+              revealMastery={false}
               onRegionSelect={handleRegionSelect}
             />
           </section>

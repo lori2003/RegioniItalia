@@ -710,7 +710,7 @@ button:focus-visible {
 }
 
 .map-region {
-  fill: var(--m-new);
+  fill: var(--map-blank);
   stroke: var(--map-stroke);
   stroke-width: 1.15;
   vector-effect: non-scaling-stroke;
@@ -723,6 +723,10 @@ button:focus-visible {
   stroke: var(--primary);
   stroke-width: 2.2;
   outline: none;
+}
+
+.map-region.is-mastery-new {
+  fill: var(--m-new);
 }
 
 .map-region.is-mastery-learning {
@@ -1098,8 +1102,8 @@ button:focus-visible {
   .game-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
-      'map'
       'mission'
+      'map'
       'progress';
   }
 

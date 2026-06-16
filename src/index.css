@@ -32,6 +32,7 @@
   --m-mastered: #15794a;
 
   --sea: #e3f0f7;
+  --map-blank: #f3eee2;
   --map-stroke: #6b7e88;
   --map-label: #10222f;
   --map-label-halo: #ffffff;
@@ -86,6 +87,7 @@
     --m-mastered: #7fe0aa;
 
     --sea: #12303f;
+    --map-blank: #243845;
     --map-stroke: #43606f;
     --map-label: #eaf1f5;
     --map-label-halo: #0f1822;
