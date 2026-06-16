@@ -187,8 +187,19 @@ export function createDefaultProgress(): GameProgress {
     memory: {},
     newCardsToday: 0,
     newCardsDate: todayKey(),
+    reviewBox: [],
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Aggiunge carte (per cardKey) al box errori, senza duplicati. */
+export function addToReviewBox(progress: GameProgress, keys: string[]): GameProgress {
+  const next: GameProgress = structuredClone(progress);
+  const set = new Set(next.reviewBox ?? []);
+  keys.forEach((key) => set.add(key));
+  next.reviewBox = [...set];
+  next.updatedAt = new Date().toISOString();
+  return next;
 }
 
 export function normalizeAnswer(value: string) {
@@ -656,6 +667,11 @@ export function applyMissionResult(
   }
   existing.due = startOfTodayPlusDays(LEITNER_INTERVALS_DAYS[existing.box]);
   next.memory[key] = existing;
+
+  // Carta corretta: esce dal box errori (e' stata corretta).
+  if (correct && next.reviewBox?.length) {
+    next.reviewBox = next.reviewBox.filter((item) => item !== key);
+  }
 
   if (isNewCard && sessionKind === 'ripasso') {
     const today = todayKey();

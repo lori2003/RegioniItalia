@@ -58,7 +58,7 @@ export type ModeCoverage = {
   seenRegions: string[];
 };
 
-export type SessionKind = 'ripasso' | 'libero';
+export type SessionKind = 'ripasso' | 'libero' | 'errori';
 
 export type MasteryLevel = 'new' | 'learning' | 'young' | 'mature' | 'mastered';
 
@@ -88,6 +88,7 @@ export type GameProgress = {
   memory: Record<string, MemoryCard>;
   newCardsToday: number;
   newCardsDate: string;
+  reviewBox: string[];
   updatedAt: string;
 };
 

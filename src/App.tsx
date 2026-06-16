@@ -24,6 +24,7 @@ import './App.css';
 import { ItalyMap } from './components/ItalyMap';
 import { provinceTypeLabels, REGIONS } from './data/regions';
 import {
+  addToReviewBox,
   applyMissionResult,
   BADGES,
   buildReviewSession,
@@ -79,6 +80,7 @@ function App() {
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
+  const [sessionWrongKeys, setSessionWrongKeys] = useState<string[]>([]);
 
   const [mode, setMode] = useState<GameModeId>('mappa');
   const [freeDifficulty, setFreeDifficulty] = useState<DifficultyId>('facile');
@@ -133,9 +135,24 @@ function App() {
     setSessionQueue(review.queue);
     setSessionIndex(0);
     setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
+    setSessionWrongKeys([]);
     loadCardChallenge(review.queue[0], progress);
     setView('game');
   }, [loadCardChallenge, progress, review]);
+
+  const startErrorSession = useCallback(
+    (keys: string[], fromProgress: GameProgress) => {
+      if (keys.length === 0) return;
+      setSessionKind('errori');
+      setSessionQueue(keys);
+      setSessionIndex(0);
+      setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
+      setSessionWrongKeys([]);
+      loadCardChallenge(keys[0], fromProgress);
+      setView('game');
+    },
+    [loadCardChallenge],
+  );
 
   const startFree = useCallback(
     (nextMode: GameModeId, nextDifficulty: DifficultyId) => {
@@ -150,6 +167,7 @@ function App() {
       setFeedback(null);
       setTypedAnswer('');
       setSelectedRegion(undefined);
+      setSessionWrongKeys([]);
       setView('game');
     },
     [progress],
@@ -175,6 +193,7 @@ function App() {
         wrong: stats.wrong + (correct ? 0 : 1),
         newCards: stats.newCards + (wasNew && sessionKind === 'ripasso' ? 1 : 0),
       }));
+      if (!correct) setSessionWrongKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
       void persist(nextProgress);
     },
     [activeDifficulty, challenge, feedback, persist, progress, sessionKind],
@@ -308,6 +327,21 @@ function App() {
     setFeedback(null);
   }
 
+  function summaryReviewNow() {
+    if (!progress) return;
+    const next = addToReviewBox(progress, sessionWrongKeys);
+    void persist(next);
+    startErrorSession(sessionWrongKeys, next);
+  }
+
+  function summaryToBox() {
+    if (!progress) return;
+    const next = addToReviewBox(progress, sessionWrongKeys);
+    void persist(next);
+    setSessionWrongKeys([]);
+    goHome();
+  }
+
   if (!progress) {
     return (
       <main className="login-screen">
@@ -387,21 +421,32 @@ function App() {
           activeRegion={activeRegion}
           onStartReview={startReview}
           onStartFree={startFree}
+          onStartErrors={(keys) => startErrorSession(keys, progress)}
           onSelectMode={setMode}
           onSelectDifficulty={setFreeDifficulty}
           onRegionSelect={setSelectedRegion}
           onReset={resetProgressAndRetest}
         />
       ) : view === 'summary' ? (
-        <SummaryView stats={sessionStats} masteredCount={masteredCount} onHome={goHome} onAgain={startReview} canRepeat={Boolean(review && review.queue.length > 0)} />
+        <SummaryView
+          stats={sessionStats}
+          masteredCount={masteredCount}
+          showErrorPrompt={sessionKind === 'ripasso' && sessionWrongKeys.length > 0}
+          onHome={goHome}
+          onReviewNow={summaryReviewNow}
+          onToBox={summaryToBox}
+          onAgain={startReview}
+          canRepeat={Boolean(review && review.queue.length > 0)}
+        />
       ) : (
         <section className="game-grid">
           <section className="mission-panel" aria-labelledby="mission-title">
-            {sessionKind === 'ripasso' ? (
+            {sessionKind !== 'libero' ? (
               <div className="session-bar">
                 <div className="session-bar-head">
                   <span className="session-tag">
-                    <Sparkles size={15} /> Ripasso · carta {Math.min(sessionIndex + 1, sessionQueue.length)}/{sessionQueue.length}
+                    {sessionKind === 'errori' ? <XCircle size={15} /> : <Sparkles size={15} />}{' '}
+                    {sessionKind === 'errori' ? 'Errori' : 'Ripasso'} · carta {Math.min(sessionIndex + 1, sessionQueue.length)}/{sessionQueue.length}
                   </span>
                   <button type="button" className="link-action" onClick={() => setView('summary')}>
                     Termina
@@ -523,7 +568,7 @@ function App() {
               {feedback ? (
                 <button type="button" className="primary-action" onClick={advance}>
                   <RefreshCw size={18} />
-                  {sessionKind === 'ripasso' ? 'Continua' : 'Nuova missione'}
+                  {sessionKind === 'libero' ? 'Nuova missione' : 'Continua'}
                 </button>
               ) : (
                 <span className="points-note">+{difficultySettings.points} punti se corretta</span>
@@ -634,6 +679,7 @@ type HomeViewProps = {
   activeRegion: RegionData;
   onStartReview: () => void;
   onStartFree: (mode: GameModeId, difficulty: DifficultyId) => void;
+  onStartErrors: (keys: string[]) => void;
   onSelectMode: (mode: GameModeId) => void;
   onSelectDifficulty: (difficulty: DifficultyId) => void;
   onRegionSelect: (regionName: string) => void;
@@ -653,6 +699,7 @@ function HomeView({
   activeRegion,
   onStartReview,
   onStartFree,
+  onStartErrors,
   onSelectMode,
   onSelectDifficulty,
   onRegionSelect,
@@ -662,6 +709,7 @@ function HomeView({
   const newAvailable = review?.newAvailable ?? 0;
   const toReview = review?.queue.length ?? 0;
   const remainingNew = remainingNewToday(progress);
+  const errorBox = progress.reviewBox ?? [];
 
   return (
     <>
@@ -673,17 +721,23 @@ function HomeView({
             </span>
             <div>
               <h2>Ripasso del giorno</h2>
-              <p>Ripeti al momento giusto le carte che stai per dimenticare.</p>
+              <p>
+                {newAvailable > 0
+                  ? `Oggi impari ${newAvailable} ${newAvailable === 1 ? 'regione nuova' : 'regioni nuove'}${dueCount > 0 ? ` e ne ripassi ${dueCount} in scadenza` : ''}.`
+                  : dueCount > 0
+                    ? `Hai ${dueCount} ${dueCount === 1 ? 'carta' : 'carte'} in scadenza da ripassare.`
+                    : 'Impara nuove regioni e ripassale al momento giusto.'}
+              </p>
             </div>
           </div>
           <div className="action-metrics">
             <div>
-              <strong>{dueCount}</strong>
-              <span>da ripassare</span>
+              <strong>{newAvailable}</strong>
+              <span>nuove da imparare</span>
             </div>
             <div>
-              <strong>{newAvailable}</strong>
-              <span>nuove oggi</span>
+              <strong>{dueCount}</strong>
+              <span>in scadenza</span>
             </div>
             <div>
               <strong>{toReview}</strong>
@@ -699,6 +753,48 @@ function HomeView({
             <p className="all-clear">
               <CheckCircle2 size={16} /> Tutto in pari! Fino a {NEW_CARDS_PER_DAY} carte nuove al giorno
               {remainingNew === 0 ? ' (limite di oggi raggiunto)' : ''}. Torna domani o allenati liberamente.
+            </p>
+          )}
+        </article>
+
+        <article className="action-card errori">
+          <div className="action-head">
+            <span className="action-icon errori" aria-hidden="true">
+              <XCircle size={22} />
+            </span>
+            <div>
+              <h2>Box errori</h2>
+              <p>Le carte che hai sbagliato, da correggere quando vuoi.</p>
+            </div>
+          </div>
+          {errorBox.length > 0 ? (
+            <>
+              <ul className="error-list">
+                {errorBox.slice(0, 6).map((key) => {
+                  const { mode: cardMode, regionName } = parseCardKey(key);
+                  const region = getRegion(regionName);
+                  const diff = effectiveDifficulty(progress, cardMode, regionName);
+                  return (
+                    <li key={key} className="error-item">
+                      <span className="error-mode">
+                        {modeIcon(cardMode)}
+                        {GAME_MODES[cardMode].label}
+                      </span>
+                      <span className="error-region">{region?.shortName ?? regionName}</span>
+                      <span className={`diff-tag ${diff}`}>{DIFFICULTIES[diff].label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {errorBox.length > 6 ? <p className="muted-note">+{errorBox.length - 6} altre nel box</p> : null}
+              <button type="button" className="primary-action big" onClick={() => onStartErrors(errorBox)}>
+                <RefreshCw size={18} />
+                Correggi errori ({errorBox.length})
+              </button>
+            </>
+          ) : (
+            <p className="all-clear">
+              <CheckCircle2 size={16} /> Nessun errore in sospeso. Quando sbagli una carta finisce qui.
             </p>
           )}
         </article>
@@ -817,13 +913,19 @@ function HomeView({
 function SummaryView({
   stats,
   masteredCount,
+  showErrorPrompt,
   onHome,
+  onReviewNow,
+  onToBox,
   onAgain,
   canRepeat,
 }: {
   stats: SessionStats;
   masteredCount: number;
+  showErrorPrompt: boolean;
   onHome: () => void;
+  onReviewNow: () => void;
+  onToBox: () => void;
   onAgain: () => void;
   canRepeat: boolean;
 }) {
@@ -834,7 +936,7 @@ function SummaryView({
         <span className="action-icon ripasso" aria-hidden="true">
           <Trophy size={26} />
         </span>
-        <h2>Ripasso completato</h2>
+        <h2>Sessione completata</h2>
         <p>Hai allenato la memoria. La precisione di oggi è del {accuracy}%.</p>
         <div className="summary-stats">
           <div>
@@ -843,7 +945,7 @@ function SummaryView({
           </div>
           <div>
             <strong>{stats.wrong}</strong>
-            <span>da rivedere</span>
+            <span>sbagliate</span>
           </div>
           <div>
             <strong>{stats.newCards}</strong>
@@ -854,18 +956,37 @@ function SummaryView({
             <span>padroneggiate</span>
           </div>
         </div>
-        <div className="summary-actions">
-          <button type="button" className="primary-action big" onClick={onHome}>
-            <Map size={18} />
-            Torna alla home
-          </button>
-          {canRepeat ? (
-            <button type="button" className="outline-action" onClick={onAgain}>
-              <RefreshCw size={17} />
-              Altro ripasso
+
+        {showErrorPrompt ? (
+          <div className="summary-prompt">
+            <p>
+              <XCircle size={16} /> Hai sbagliato {stats.wrong} {stats.wrong === 1 ? 'carta' : 'carte'}. Vuoi ripassarle subito?
+            </p>
+            <div className="summary-actions">
+              <button type="button" className="primary-action big" onClick={onReviewNow}>
+                <RefreshCw size={18} />
+                Ripassale ora
+              </button>
+              <button type="button" className="outline-action" onClick={onToBox}>
+                <Map size={17} />
+                Mettile nel box
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="summary-actions">
+            <button type="button" className="primary-action big" onClick={onHome}>
+              <Map size={18} />
+              Torna alla home
             </button>
-          ) : null}
-        </div>
+            {canRepeat ? (
+              <button type="button" className="outline-action" onClick={onAgain}>
+                <RefreshCw size={17} />
+                Altro ripasso
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
   );
