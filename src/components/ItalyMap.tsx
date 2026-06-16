@@ -1,6 +1,7 @@
 import { geoMercator, geoPath } from 'd3-geo';
 import { useEffect, useMemo, useState } from 'react';
 import { REGIONS } from '../data/regions';
+import type { MasteryLevel } from '../types';
 
 type GeoFeature = {
   type: 'Feature';
@@ -18,8 +19,9 @@ type GeoCollection = {
 type ItalyMapProps = {
   targetRegion?: string;
   selectedRegion?: string;
-  revealedRegions: string[];
+  masteryByRegion: Record<string, MasteryLevel>;
   expectsMapClick: boolean;
+  hideLabels?: boolean;
   onRegionSelect: (regionName: string) => void;
 };
 
@@ -29,8 +31,9 @@ const HEIGHT = 660;
 export function ItalyMap({
   targetRegion,
   selectedRegion,
-  revealedRegions,
+  masteryByRegion,
   expectsMapClick,
+  hideLabels = false,
   onRegionSelect,
 }: ItalyMapProps) {
   const [geoData, setGeoData] = useState<GeoCollection | null>(null);
@@ -83,21 +86,21 @@ export function ItalyMap({
 
   return (
     <svg
-      className="italy-map"
+      className={expectsMapClick ? 'italy-map awaiting-click' : 'italy-map'}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       role="img"
       aria-label="Mappa interattiva delle regioni italiane"
     >
       <rect className="map-sea" x="0" y="0" width={WIDTH} height={HEIGHT} rx="8" />
       {paths.map((path) => {
-        const revealed = revealedRegions.includes(path.name);
+        const mastery = masteryByRegion[path.name] ?? 'new';
         const selected = selectedRegion === path.name;
         const target = targetRegion === path.name;
         const className = [
           'map-region',
-          revealed ? 'is-unlocked' : '',
+          `is-mastery-${mastery}`,
           selected ? 'is-selected' : '',
-          expectsMapClick && target ? 'is-target-candidate' : '',
+          target ? 'is-target-candidate' : '',
         ]
           .filter(Boolean)
           .join(' ');
@@ -122,7 +125,8 @@ export function ItalyMap({
       })}
       {paths.map((path) => {
         const [x, y] = path.centroid;
-        const showLabel = revealedRegions.includes(path.name) || selectedRegion === path.name;
+        const known = (masteryByRegion[path.name] ?? 'new') !== 'new';
+        const showLabel = !hideLabels && (known || selectedRegion === path.name);
         if (!showLabel) return null;
 
         return (

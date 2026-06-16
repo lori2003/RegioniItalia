@@ -58,6 +58,18 @@ export type ModeCoverage = {
   seenRegions: string[];
 };
 
+export type SessionKind = 'ripasso' | 'libero';
+
+export type MasteryLevel = 'new' | 'learning' | 'young' | 'mature' | 'mastered';
+
+export type MemoryCard = {
+  box: number;
+  due: string;
+  reps: number;
+  lapses: number;
+  lastReviewed: string | null;
+};
+
 export type GameProgress = {
   playerName: 'Lorenzo';
   score: number;
@@ -73,6 +85,9 @@ export type GameProgress = {
   modeStats: Record<GameModeId, MissionStats>;
   difficultyStats: Record<DifficultyId, MissionStats>;
   modeCoverage: Record<GameModeId, ModeCoverage>;
+  memory: Record<string, MemoryCard>;
+  newCardsToday: number;
+  newCardsDate: string;
   updatedAt: string;
 };
 

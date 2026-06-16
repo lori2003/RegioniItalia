@@ -56,6 +56,9 @@ function normalizeProgress(progress: Partial<GameProgress>): GameProgress {
     mistakes: progress.mistakes ?? {},
     unlockedRegions: progress.unlockedRegions ?? [],
     badges: progress.badges ?? [],
+    memory: progress.memory ?? {},
+    newCardsToday: progress.newCardsToday ?? 0,
+    newCardsDate: progress.newCardsDate ?? fallback.newCardsDate,
     updatedAt: progress.updatedAt ?? new Date().toISOString(),
   };
 }

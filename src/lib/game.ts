@@ -1,7 +1,26 @@
 import { allProvinceNames, REGIONS } from '../data/regions';
-import type { Challenge, DifficultyId, GameModeId, GameProgress, ModeCoverage, RegionData } from '../types';
+import type {
+  Challenge,
+  DifficultyId,
+  GameModeId,
+  GameProgress,
+  MasteryLevel,
+  MemoryCard,
+  ModeCoverage,
+  RegionData,
+  SessionKind,
+} from '../types';
 
 export const PLAYER_NAME = 'Lorenzo' as const;
+
+/** Ripetizione spaziata (Leitner): giorni di attesa per casella 0..5. */
+export const LEITNER_INTERVALS_DAYS = [0, 1, 3, 7, 16, 35] as const;
+export const MAX_BOX = LEITNER_INTERVALS_DAYS.length - 1;
+export const NEW_CARDS_PER_DAY = 8;
+export const SESSION_SIZE = 20;
+
+/** Modalita che riguardano tutte le 20 regioni: base per la padronanza sulla mappa. */
+const MASTERY_MODES: GameModeId[] = ['mappa', 'capoluoghi', 'province', 'confini', 'cultura'];
 
 export const DIFFICULTIES: Record<
   DifficultyId,
@@ -116,6 +135,8 @@ export const BADGES = [
   { id: 'mezza-italia', label: 'Mezza Italia', requirement: 'Sblocca 10 regioni.' },
   { id: 'isole-sbloccate', label: 'Rotta delle isole', requirement: 'Sblocca Sicilia e Sardegna.' },
   { id: 'italia-completa', label: 'Italia completa', requirement: 'Sblocca tutte le regioni.' },
+  { id: 'memoria-fresca', label: 'Memoria fresca', requirement: 'Porta 10 carte alla casella 3 o oltre.' },
+  { id: 'memoria-acciaio', label: 'Memoria d’acciaio', requirement: 'Padroneggia 20 carte (casella massima).' },
 ];
 
 export const LEVELS = [
@@ -163,6 +184,9 @@ export function createDefaultProgress(): GameProgress {
     modeStats: createEmptyStats(Object.keys(GAME_MODES) as GameModeId[]),
     difficultyStats: createEmptyStats(Object.keys(DIFFICULTIES) as DifficultyId[]),
     modeCoverage: createEmptyCoverage(Object.keys(GAME_MODES) as GameModeId[]),
+    memory: {},
+    newCardsToday: 0,
+    newCardsDate: todayKey(),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -186,6 +210,133 @@ function shuffle<T>(items: T[]) {
 
 function unique(items: string[]) {
   return [...new Set(items)];
+}
+
+/** Chiave locale del giorno (YYYY-MM-DD) per il conteggio delle carte nuove. */
+export function todayKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function startOfTodayPlusDays(days: number) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
+const CARD_KEY_SEPARATOR = '::';
+
+export function cardKey(mode: GameModeId, regionName: string) {
+  return `${mode}${CARD_KEY_SEPARATOR}${regionName}`;
+}
+
+export function parseCardKey(key: string): { mode: GameModeId; regionName: string } {
+  const index = key.indexOf(CARD_KEY_SEPARATOR);
+  return {
+    mode: key.slice(0, index) as GameModeId,
+    regionName: key.slice(index + CARD_KEY_SEPARATOR.length),
+  };
+}
+
+/** Tutte le carte possibili: ogni modalita per ognuno dei suoi obiettivi. */
+export function getAllCardKeys() {
+  return (Object.keys(GAME_MODES) as GameModeId[]).flatMap((mode) =>
+    getModeCoverageTargets(mode).map((regionName) => cardKey(mode, regionName)),
+  );
+}
+
+function isCardDue(card: MemoryCard, now = Date.now()) {
+  return new Date(card.due).getTime() <= now;
+}
+
+export function remainingNewToday(progress: GameProgress) {
+  const used = progress.newCardsDate === todayKey() ? progress.newCardsToday : 0;
+  return Math.max(0, NEW_CARDS_PER_DAY - used);
+}
+
+export type ReviewSession = {
+  queue: string[];
+  dueCount: number;
+  newAvailable: number;
+  totalCards: number;
+  masteredCount: number;
+};
+
+/** Costruisce la sessione di ripasso: scadute (piu vecchie prima) + nuove col tetto giornaliero. */
+export function buildReviewSession(progress: GameProgress): ReviewSession {
+  const now = Date.now();
+  const allKeys = getAllCardKeys();
+  const due: string[] = [];
+  const fresh: string[] = [];
+
+  allKeys.forEach((key) => {
+    const card = progress.memory?.[key];
+    if (!card) {
+      fresh.push(key);
+      return;
+    }
+    if (isCardDue(card, now)) due.push(key);
+  });
+
+  due.sort((a, b) => {
+    const ca = progress.memory[a];
+    const cb = progress.memory[b];
+    return new Date(ca.due).getTime() - new Date(cb.due).getTime() || ca.box - cb.box;
+  });
+
+  const newAvailable = Math.min(remainingNewToday(progress), fresh.length);
+  const dueSlice = due.slice(0, SESSION_SIZE);
+  const newToAdd = Math.min(newAvailable, Math.max(0, SESSION_SIZE - dueSlice.length));
+  const queue = shuffle([...dueSlice, ...shuffle(fresh).slice(0, newToAdd)]);
+
+  const cards = Object.values(progress.memory ?? {});
+  return {
+    queue,
+    dueCount: due.length,
+    newAvailable,
+    totalCards: allKeys.length,
+    masteredCount: cards.filter((card) => card.box >= MAX_BOX).length,
+  };
+}
+
+export function difficultyForBox(box: number): DifficultyId {
+  if (box <= 1) return 'facile';
+  if (box <= 3) return 'medio';
+  return 'difficile';
+}
+
+/** Difficolta adattiva: deriva dalla casella della carta (gli aiuti svaniscono crescendo). */
+export function effectiveDifficulty(progress: GameProgress, mode: GameModeId, regionName: string): DifficultyId {
+  const card = progress.memory?.[cardKey(mode, regionName)];
+  return difficultyForBox(card?.box ?? 0);
+}
+
+export function getRegionMastery(progress: GameProgress, regionName: string): MasteryLevel {
+  const cards = MASTERY_MODES.map((mode) => progress.memory?.[cardKey(mode, regionName)]).filter(
+    (card): card is MemoryCard => Boolean(card),
+  );
+  if (cards.length === 0) return 'new';
+
+  const avg = MASTERY_MODES.reduce((sum, mode) => {
+    const card = progress.memory?.[cardKey(mode, regionName)];
+    return sum + (card?.box ?? 0);
+  }, 0) / MASTERY_MODES.length;
+
+  if (avg < 1.5) return 'learning';
+  if (avg < 3) return 'young';
+  if (avg < 4.5) return 'mature';
+  return 'mastered';
+}
+
+export function getMasteryMap(progress: GameProgress): Record<string, MasteryLevel> {
+  const map: Record<string, MasteryLevel> = {};
+  REGIONS.forEach((region) => {
+    map[region.name] = getRegionMastery(progress, region.name);
+  });
+  return map;
 }
 
 function getJourneySteps() {
@@ -273,8 +424,15 @@ export function getRegion(name: string) {
   );
 }
 
-export function createChallenge(mode: GameModeId, difficulty: DifficultyId, progress?: GameProgress): Challenge {
-  const region = pickRegionForMode(mode, progress);
+export function createChallenge(
+  mode: GameModeId,
+  difficulty: DifficultyId,
+  progress?: GameProgress,
+  forcedRegionName?: string,
+): Challenge {
+  const region = forcedRegionName
+    ? getRegion(forcedRegionName) ?? pickRegionForMode(mode, progress)
+    : pickRegionForMode(mode, progress);
   const settings = DIFFICULTIES[difficulty];
   const optionCount = settings.optionCount;
   const baseHints = region.hints.slice(0, settings.hints);
@@ -355,7 +513,9 @@ export function createChallenge(mode: GameModeId, difficulty: DifficultyId, prog
   }
 
   if (mode === 'viaggio') {
-    const step = pickJourneyStep(progress);
+    const step = forcedRegionName
+      ? getJourneySteps().find((item) => item.next === forcedRegionName) ?? pickJourneyStep(progress)
+      : pickJourneyStep(progress);
     const journey = step.journey;
     const current = step.current;
     const next = step.next;
@@ -436,6 +596,7 @@ export function applyMissionResult(
   challenge: Challenge,
   difficulty: DifficultyId,
   correct: boolean,
+  sessionKind: SessionKind = 'libero',
 ) {
   const next: GameProgress = structuredClone(progress);
   const modeStat = next.modeStats[challenge.mode] ?? { played: 0, correct: 0 };
@@ -473,6 +634,38 @@ export function applyMissionResult(
   next.modeStats[challenge.mode] = modeStat;
   next.difficultyStats[difficulty] = difficultyStat;
   next.modeCoverage[challenge.mode] = modeCoverage;
+
+  if (!next.memory) next.memory = {};
+  const key = cardKey(challenge.mode, challenge.targetRegion);
+  const isNewCard = !next.memory[key];
+  const existing: MemoryCard = next.memory[key] ?? {
+    box: 0,
+    due: startOfTodayPlusDays(0),
+    reps: 0,
+    lapses: 0,
+    lastReviewed: null,
+  };
+
+  existing.reps += 1;
+  existing.lastReviewed = new Date().toISOString();
+  if (correct) {
+    existing.box = Math.min(MAX_BOX, existing.box + 1);
+  } else {
+    if (existing.box >= 2) existing.lapses += 1;
+    existing.box = 1;
+  }
+  existing.due = startOfTodayPlusDays(LEITNER_INTERVALS_DAYS[existing.box]);
+  next.memory[key] = existing;
+
+  if (isNewCard && sessionKind === 'ripasso') {
+    const today = todayKey();
+    if (next.newCardsDate !== today) {
+      next.newCardsDate = today;
+      next.newCardsToday = 0;
+    }
+    next.newCardsToday += 1;
+  }
+
   next.badges = computeBadges(next);
   next.updatedAt = new Date().toISOString();
   return next;
@@ -488,6 +681,10 @@ export function computeBadges(progress: GameProgress) {
   if (unlocked.size >= 10) next.add('mezza-italia');
   if (unlocked.has('Sicilia') && unlocked.has('Sardegna')) next.add('isole-sbloccate');
   if (unlocked.size >= REGIONS.length) next.add('italia-completa');
+
+  const cards = Object.values(progress.memory ?? {});
+  if (cards.filter((card) => card.box >= 3).length >= 10) next.add('memoria-fresca');
+  if (cards.filter((card) => card.box >= MAX_BOX).length >= 20) next.add('memoria-acciaio');
 
   return [...next];
 }
