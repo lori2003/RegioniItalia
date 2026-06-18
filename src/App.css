@@ -283,6 +283,46 @@ button:focus-visible {
   gap: 8px;
 }
 
+/* ===== Home mode tabs ===== */
+.home-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.home-mode-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 14px;
+  font-size: 15px;
+}
+
+.home-mode-tabs button.active {
+  color: var(--on-primary);
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.recall-mode-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--primary) 8%, var(--paper));
+  color: var(--primary);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* ===== Home actions ===== */
 .home-actions {
   display: grid;
@@ -496,6 +536,10 @@ button:focus-visible {
 }
 
 .segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink);
@@ -506,6 +550,10 @@ button:focus-visible {
 .segmented.small button {
   min-height: 38px;
   font-size: 14px;
+}
+
+.segmented.two-col {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .segmented button.active {
@@ -685,6 +733,33 @@ button:focus-visible {
   background: color-mix(in srgb, var(--primary) 8%, var(--paper));
   padding: 12px;
   font-weight: 600;
+}
+
+/* ===== Answer style toggle + self test ===== */
+.answer-style-toggle {
+  display: grid;
+  gap: 8px;
+}
+
+.self-test-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 50%, var(--line));
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--primary) 6%, var(--paper));
+  padding: 14px;
+}
+
+.self-test-hint {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.self-grade-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* ===== Answers ===== */

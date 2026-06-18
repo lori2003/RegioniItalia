@@ -1,11 +1,14 @@
 import {
   Award,
+  Brain,
   CheckCircle2,
   Clock3,
   Cloud,
   Compass,
   Crown,
+  Eye,
   Flame,
+  GraduationCap,
   Lightbulb,
   LockKeyhole,
   Map,
@@ -15,6 +18,8 @@ import {
   Route,
   Sparkles,
   Target,
+  ThumbsDown,
+  ThumbsUp,
   Trophy,
   XCircle,
 } from 'lucide-react';
@@ -55,6 +60,8 @@ import type {
 } from './types';
 
 type View = 'home' | 'game' | 'summary';
+type HomeTab = 'studio' | 'test';
+type AnswerStyle = 'click' | 'mente';
 type SessionStats = { answered: number; correct: number; wrong: number; newCards: number };
 
 const MASTERY_META: Record<MasteryLevel, { label: string; className: string }> = {
@@ -74,11 +81,14 @@ function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle', label: 'Pronto' });
 
   const [view, setView] = useState<View>('home');
+  const [homeTab, setHomeTab] = useState<HomeTab>('test');
   const [sessionKind, setSessionKind] = useState<SessionKind>('ripasso');
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
   const [sessionWrongKeys, setSessionWrongKeys] = useState<string[]>([]);
+  const [answerStyle, setAnswerStyle] = useState<AnswerStyle>('click');
+  const [selfTestRevealed, setSelfTestRevealed] = useState(false);
 
   const [mode, setMode] = useState<GameModeId>('mappa');
   const [freeDifficulty, setFreeDifficulty] = useState<DifficultyId>('facile');
@@ -106,7 +116,8 @@ function App() {
   );
   const difficultySettings = DIFFICULTIES[activeDifficulty];
   const requiresFreeText = !challenge.expectsMapClick && challenge.options.length === 0;
-  const targetMapRegion = feedback ? challenge.targetRegion : undefined;
+  const isSelfTestMappa = challenge.mode === 'mappa' && sessionKind !== 'libero' && answerStyle === 'mente';
+  const targetMapRegion = feedback || (isSelfTestMappa && selfTestRevealed) ? challenge.targetRegion : undefined;
 
   const persist = useCallback(async (nextProgress: GameProgress) => {
     setProgress(nextProgress);
@@ -125,6 +136,7 @@ function App() {
     setFeedback(null);
     setTypedAnswer('');
     setSelectedRegion(undefined);
+    setSelfTestRevealed(false);
   }, []);
 
   const startReview = useCallback(() => {
@@ -134,6 +146,7 @@ function App() {
     setSessionIndex(0);
     setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
     setSessionWrongKeys([]);
+    setAnswerStyle('click');
     loadCardChallenge(review.queue[0], progress);
     setView('game');
   }, [loadCardChallenge, progress, review]);
@@ -146,6 +159,7 @@ function App() {
       setSessionIndex(0);
       setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
       setSessionWrongKeys([]);
+      setAnswerStyle('click');
       loadCardChallenge(keys[0], fromProgress);
       setView('game');
     },
@@ -166,6 +180,8 @@ function App() {
       setTypedAnswer('');
       setSelectedRegion(undefined);
       setSessionWrongKeys([]);
+      setAnswerStyle('click');
+      setSelfTestRevealed(false);
       setView('game');
     },
     [progress],
@@ -413,10 +429,12 @@ function App() {
           masteryMap={masteryMap}
           masteryCounts={masteryCounts}
           masteredCount={masteredCount}
+          homeTab={homeTab}
           freeMode={mode}
           freeDifficulty={freeDifficulty}
           selectedRegion={selectedRegion}
           activeRegion={activeRegion}
+          onSelectHomeTab={setHomeTab}
           onStartReview={startReview}
           onStartFree={startFree}
           onStartErrors={(keys) => startErrorSession(keys, progress)}
@@ -504,6 +522,36 @@ function App() {
             <h2 id="mission-title">{challenge.prompt}</h2>
             <p className="mission-description">{difficultySettings.description}</p>
 
+            {challenge.mode === 'mappa' && sessionKind !== 'libero' ? (
+              <div className="answer-style-toggle">
+                <span className="control-label">Come vuoi rispondere?</span>
+                <div className="segmented small two-col">
+                  <button
+                    type="button"
+                    className={answerStyle === 'click' ? 'active' : ''}
+                    disabled={Boolean(feedback)}
+                    onClick={() => {
+                      setAnswerStyle('click');
+                      setSelfTestRevealed(false);
+                    }}
+                  >
+                    <MapPin size={15} /> Clicca la mappa
+                  </button>
+                  <button
+                    type="button"
+                    className={answerStyle === 'mente' ? 'active' : ''}
+                    disabled={Boolean(feedback)}
+                    onClick={() => {
+                      setAnswerStyle('mente');
+                      setSelfTestRevealed(false);
+                    }}
+                  >
+                    <Brain size={15} /> A mente
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             {challenge.hints.length > 0 ? (
               <div className="hint-list" aria-label="Suggerimenti">
                 {challenge.hints.map((hint) => (
@@ -516,10 +564,49 @@ function App() {
               </div>
             )}
 
-            {challenge.expectsMapClick ? (
+            {challenge.expectsMapClick && !isSelfTestMappa ? (
               <div className="map-instruction">
                 <MapPin size={18} />
                 Clicca direttamente sulla regione corretta nella mappa.
+              </div>
+            ) : isSelfTestMappa ? (
+              <div className="self-test-panel">
+                {feedback ? null : !selfTestRevealed ? (
+                  <>
+                    <p className="self-test-hint">
+                      Visualizza a mente dove si trova {challenge.correctDisplay}, poi rivela la risposta.
+                    </p>
+                    <button type="button" className="primary-action" onClick={() => setSelfTestRevealed(true)}>
+                      <Eye size={18} />
+                      Mostra la risposta
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="self-test-hint">
+                      La regione corretta e evidenziata sulla mappa: <strong>{challenge.correctDisplay}</strong>. L'avevi
+                      indovinata a mente?
+                    </p>
+                    <div className="self-grade-actions">
+                      <button
+                        type="button"
+                        className="primary-action"
+                        onClick={() => completeMission('', true, 'Autovalutazione: sapevi la risposta.')}
+                      >
+                        <ThumbsUp size={18} />
+                        L'avevo indovinata
+                      </button>
+                      <button
+                        type="button"
+                        className="outline-action"
+                        onClick={() => completeMission('', false, 'Autovalutazione: da ripassare.')}
+                      >
+                        <ThumbsDown size={18} />
+                        Non la sapevo
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : challenge.options.length > 0 ? (
               <div className="answer-grid">
@@ -580,7 +667,7 @@ function App() {
               targetRegion={targetMapRegion}
               selectedRegion={selectedRegion}
               masteryByRegion={masteryMap}
-              expectsMapClick={challenge.expectsMapClick && !feedback}
+              expectsMapClick={challenge.expectsMapClick && !feedback && !isSelfTestMappa}
               revealMastery={false}
               onRegionSelect={handleRegionSelect}
             />
@@ -671,10 +758,12 @@ type HomeViewProps = {
   masteryMap: Record<string, MasteryLevel>;
   masteryCounts: Record<MasteryLevel, number>;
   masteredCount: number;
+  homeTab: HomeTab;
   freeMode: GameModeId;
   freeDifficulty: DifficultyId;
   selectedRegion?: string;
   activeRegion: RegionData;
+  onSelectHomeTab: (tab: HomeTab) => void;
   onStartReview: () => void;
   onStartFree: (mode: GameModeId, difficulty: DifficultyId) => void;
   onStartErrors: (keys: string[]) => void;
@@ -691,10 +780,12 @@ function HomeView({
   masteryMap,
   masteryCounts,
   masteredCount,
+  homeTab,
   freeMode,
   freeDifficulty,
   selectedRegion,
   activeRegion,
+  onSelectHomeTab,
   onStartReview,
   onStartFree,
   onStartErrors,
@@ -712,135 +803,160 @@ function HomeView({
 
   return (
     <>
+      <nav className="home-mode-tabs" aria-label="Modalita principali">
+        <button
+          type="button"
+          className={homeTab === 'studio' ? 'active' : ''}
+          onClick={() => onSelectHomeTab('studio')}
+        >
+          <GraduationCap size={18} />
+          Studio
+        </button>
+        <button type="button" className={homeTab === 'test' ? 'active' : ''} onClick={() => onSelectHomeTab('test')}>
+          <Brain size={18} />
+          Test e Memorizzazione
+        </button>
+      </nav>
+
       <section className="home-actions">
-        <article className="action-card primary">
-          <div className="action-head">
-            <span className="action-icon ripasso" aria-hidden="true">
-              <Sparkles size={22} />
-            </span>
-            <div>
-              <h2>Ripasso del giorno</h2>
-              <p>
-                {toReview > 0
-                  ? `Sessione di ${toReview} carte: ${newInSession} ${newInSession === 1 ? 'nuova' : 'nuove'}${dueCount > 0 ? ` e ${dueCount} in ripasso` : ''}.`
-                  : 'Hai studiato tutte le carte disponibili: nessun ripasso in scadenza ora.'}
+        {homeTab === 'test' ? (
+          <article className="action-card primary">
+            <div className="action-head">
+              <span className="action-icon ripasso" aria-hidden="true">
+                <Sparkles size={22} />
+              </span>
+              <div>
+                <h2>Ripasso del giorno</h2>
+                <p>
+                  {toReview > 0
+                    ? `Sessione di ${toReview} carte: ${newInSession} ${newInSession === 1 ? 'nuova' : 'nuove'}${dueCount > 0 ? ` e ${dueCount} in ripasso` : ''}.`
+                    : 'Hai studiato tutte le carte disponibili: nessun ripasso in scadenza ora.'}
+                </p>
+              </div>
+            </div>
+            <div className="action-metrics">
+              <div>
+                <strong>{newInSession}</strong>
+                <span>nuove in sessione</span>
+              </div>
+              <div>
+                <strong>{dueCount}</strong>
+                <span>in scadenza</span>
+              </div>
+              <div>
+                <strong>
+                  {seenCards}
+                  <small>/{totalCards}</small>
+                </strong>
+                <span>carte viste</span>
+              </div>
+            </div>
+            <p className="recall-mode-note">
+              <Brain size={15} /> Per le carte mappa puoi rispondere a mente: visualizzi la regione, riveli la
+              risposta e ti autovaluti.
+            </p>
+            {toReview > 0 ? (
+              <button type="button" className="primary-action big" onClick={onStartReview}>
+                <Sparkles size={18} />
+                Inizia ripasso
+              </button>
+            ) : (
+              <p className="all-clear">
+                <CheckCircle2 size={16} /> Tutto in pari! Hai visto {seenCards}/{totalCards} carte e non ci sono
+                ripassi in scadenza. Torna più tardi o allenati liberamente.
               </p>
+            )}
+          </article>
+        ) : null}
+
+        {homeTab === 'test' ? (
+          <article className="action-card errori">
+            <div className="action-head">
+              <span className="action-icon errori" aria-hidden="true">
+                <XCircle size={22} />
+              </span>
+              <div>
+                <h2>Box errori</h2>
+                <p>Le carte che hai sbagliato, da correggere quando vuoi.</p>
+              </div>
             </div>
-          </div>
-          <div className="action-metrics">
-            <div>
-              <strong>{newInSession}</strong>
-              <span>nuove in sessione</span>
+            {errorBox.length > 0 ? (
+              <>
+                <ul className="error-list">
+                  {errorBox.slice(0, 6).map((key) => {
+                    const { mode: cardMode, regionName } = parseCardKey(key);
+                    const region = getRegion(regionName);
+                    const diff = effectiveDifficulty(progress, cardMode, regionName);
+                    return (
+                      <li key={key} className="error-item">
+                        <span className="error-mode">
+                          {modeIcon(cardMode)}
+                          {GAME_MODES[cardMode].label}
+                        </span>
+                        <span className="error-region">{region?.shortName ?? regionName}</span>
+                        <span className={`diff-tag ${diff}`}>{DIFFICULTIES[diff].label}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {errorBox.length > 6 ? <p className="muted-note">+{errorBox.length - 6} altre nel box</p> : null}
+                <button type="button" className="primary-action big" onClick={() => onStartErrors(errorBox)}>
+                  <RefreshCw size={18} />
+                  Correggi errori ({errorBox.length})
+                </button>
+              </>
+            ) : (
+              <p className="all-clear">
+                <CheckCircle2 size={16} /> Nessun errore in sospeso. Quando sbagli una carta finisce qui.
+              </p>
+            )}
+          </article>
+        ) : null}
+
+        {homeTab === 'studio' ? (
+          <article className="action-card">
+            <div className="action-head">
+              <span className="action-icon libero" aria-hidden="true">
+                <Compass size={22} />
+              </span>
+              <div>
+                <h2>Allenamento libero</h2>
+                <p>Gioca senza limiti: scegli modalità e difficoltà, con aiuti e mappa interattiva.</p>
+              </div>
             </div>
-            <div>
-              <strong>{dueCount}</strong>
-              <span>in scadenza</span>
+            <div className="segmented small">
+              {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={freeDifficulty === key ? 'active' : ''}
+                  onClick={() => onSelectDifficulty(key)}
+                  title={DIFFICULTIES[key].description}
+                >
+                  {DIFFICULTIES[key].label}
+                </button>
+              ))}
             </div>
-            <div>
-              <strong>
-                {seenCards}
-                <small>/{totalCards}</small>
-              </strong>
-              <span>carte viste</span>
+            <div className="mode-chips home">
+              {(Object.keys(GAME_MODES) as GameModeId[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={freeMode === key ? 'mode-chip active' : 'mode-chip'}
+                  onClick={() => onSelectMode(key)}
+                  title={GAME_MODES[key].description}
+                >
+                  {modeIcon(key)}
+                  <span>{GAME_MODES[key].label}</span>
+                </button>
+              ))}
             </div>
-          </div>
-          {toReview > 0 ? (
-            <button type="button" className="primary-action big" onClick={onStartReview}>
-              <Sparkles size={18} />
-              Inizia ripasso
+            <button type="button" className="secondary-action big" onClick={() => onStartFree(freeMode, freeDifficulty)}>
+              <Route size={18} />
+              Gioca {GAME_MODES[freeMode].label}
             </button>
-          ) : (
-            <p className="all-clear">
-              <CheckCircle2 size={16} /> Tutto in pari! Hai visto {seenCards}/{totalCards} carte e non ci sono ripassi
-              in scadenza. Torna più tardi o allenati liberamente.
-            </p>
-          )}
-        </article>
-
-        <article className="action-card errori">
-          <div className="action-head">
-            <span className="action-icon errori" aria-hidden="true">
-              <XCircle size={22} />
-            </span>
-            <div>
-              <h2>Box errori</h2>
-              <p>Le carte che hai sbagliato, da correggere quando vuoi.</p>
-            </div>
-          </div>
-          {errorBox.length > 0 ? (
-            <>
-              <ul className="error-list">
-                {errorBox.slice(0, 6).map((key) => {
-                  const { mode: cardMode, regionName } = parseCardKey(key);
-                  const region = getRegion(regionName);
-                  const diff = effectiveDifficulty(progress, cardMode, regionName);
-                  return (
-                    <li key={key} className="error-item">
-                      <span className="error-mode">
-                        {modeIcon(cardMode)}
-                        {GAME_MODES[cardMode].label}
-                      </span>
-                      <span className="error-region">{region?.shortName ?? regionName}</span>
-                      <span className={`diff-tag ${diff}`}>{DIFFICULTIES[diff].label}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-              {errorBox.length > 6 ? <p className="muted-note">+{errorBox.length - 6} altre nel box</p> : null}
-              <button type="button" className="primary-action big" onClick={() => onStartErrors(errorBox)}>
-                <RefreshCw size={18} />
-                Correggi errori ({errorBox.length})
-              </button>
-            </>
-          ) : (
-            <p className="all-clear">
-              <CheckCircle2 size={16} /> Nessun errore in sospeso. Quando sbagli una carta finisce qui.
-            </p>
-          )}
-        </article>
-
-        <article className="action-card">
-          <div className="action-head">
-            <span className="action-icon libero" aria-hidden="true">
-              <Compass size={22} />
-            </span>
-            <div>
-              <h2>Allenamento libero</h2>
-              <p>Gioca senza limiti: scegli modalità e difficoltà.</p>
-            </div>
-          </div>
-          <div className="segmented small">
-            {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={freeDifficulty === key ? 'active' : ''}
-                onClick={() => onSelectDifficulty(key)}
-                title={DIFFICULTIES[key].description}
-              >
-                {DIFFICULTIES[key].label}
-              </button>
-            ))}
-          </div>
-          <div className="mode-chips home">
-            {(Object.keys(GAME_MODES) as GameModeId[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={freeMode === key ? 'mode-chip active' : 'mode-chip'}
-                onClick={() => onSelectMode(key)}
-                title={GAME_MODES[key].description}
-              >
-                {modeIcon(key)}
-                <span>{GAME_MODES[key].label}</span>
-              </button>
-            ))}
-          </div>
-          <button type="button" className="secondary-action big" onClick={() => onStartFree(freeMode, freeDifficulty)}>
-            <Route size={18} />
-            Gioca {GAME_MODES[freeMode].label}
-          </button>
-        </article>
+          </article>
+        ) : null}
       </section>
 
       <section className="home-overview">
