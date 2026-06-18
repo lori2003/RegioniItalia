@@ -116,7 +116,8 @@ function App() {
   );
   const difficultySettings = DIFFICULTIES[activeDifficulty];
   const requiresFreeText = !challenge.expectsMapClick && challenge.options.length === 0;
-  const isSelfTestMappa = challenge.mode === 'mappa' && sessionKind !== 'libero' && answerStyle === 'mente';
+  const isSelfTest = sessionKind !== 'libero' && answerStyle === 'mente';
+  const isSelfTestMappa = isSelfTest && challenge.mode === 'mappa';
   const targetMapRegion = feedback || (isSelfTestMappa && selfTestRevealed) ? challenge.targetRegion : undefined;
 
   const persist = useCallback(async (nextProgress: GameProgress) => {
@@ -522,7 +523,7 @@ function App() {
             <h2 id="mission-title">{challenge.prompt}</h2>
             <p className="mission-description">{difficultySettings.description}</p>
 
-            {challenge.mode === 'mappa' && sessionKind !== 'libero' ? (
+            {sessionKind !== 'libero' ? (
               <div className="answer-style-toggle">
                 <span className="control-label">Come vuoi rispondere?</span>
                 <div className="segmented small two-col">
@@ -535,7 +536,8 @@ function App() {
                       setSelfTestRevealed(false);
                     }}
                   >
-                    <MapPin size={15} /> Clicca la mappa
+                    {challenge.mode === 'mappa' ? <MapPin size={15} /> : <CheckCircle2 size={15} />}
+                    {challenge.mode === 'mappa' ? 'Clicca la mappa' : 'Rispondi normalmente'}
                   </button>
                   <button
                     type="button"
@@ -564,17 +566,19 @@ function App() {
               </div>
             )}
 
-            {challenge.expectsMapClick && !isSelfTestMappa ? (
+            {challenge.expectsMapClick && !isSelfTest ? (
               <div className="map-instruction">
                 <MapPin size={18} />
                 Clicca direttamente sulla regione corretta nella mappa.
               </div>
-            ) : isSelfTestMappa ? (
+            ) : isSelfTest ? (
               <div className="self-test-panel">
                 {feedback ? null : !selfTestRevealed ? (
                   <>
                     <p className="self-test-hint">
-                      Visualizza a mente dove si trova {challenge.correctDisplay}, poi rivela la risposta.
+                      {isSelfTestMappa
+                        ? `Visualizza a mente dove si trova ${challenge.correctDisplay}, poi rivela la risposta.`
+                        : 'Pensa alla risposta a mente, poi rivelala.'}
                     </p>
                     <button type="button" className="primary-action" onClick={() => setSelfTestRevealed(true)}>
                       <Eye size={18} />
@@ -584,8 +588,16 @@ function App() {
                 ) : (
                   <>
                     <p className="self-test-hint">
-                      La regione corretta e evidenziata sulla mappa: <strong>{challenge.correctDisplay}</strong>. L'avevi
-                      indovinata a mente?
+                      {isSelfTestMappa ? (
+                        <>
+                          La regione corretta e evidenziata sulla mappa: <strong>{challenge.correctDisplay}</strong>.
+                        </>
+                      ) : (
+                        <>
+                          Risposta corretta: <strong>{challenge.correctDisplay}</strong>.
+                        </>
+                      )}{' '}
+                      L'avevi indovinata a mente?
                     </p>
                     <div className="self-grade-actions">
                       <button
@@ -852,8 +864,8 @@ function HomeView({
               </div>
             </div>
             <p className="recall-mode-note">
-              <Brain size={15} /> Per le carte mappa puoi rispondere a mente: visualizzi la regione, riveli la
-              risposta e ti autovaluti.
+              <Brain size={15} /> Su ogni carta puoi rispondere a mente: ci pensi, riveli la risposta e ti
+              autovaluti con "Lo sapevo" / "Non lo sapevo".
             </p>
             {toReview > 0 ? (
               <button type="button" className="primary-action big" onClick={onStartReview}>

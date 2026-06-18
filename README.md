@@ -13,8 +13,9 @@ Il codice sorgente sta su `main`; la versione pubblicata da GitHub Pages sta sul
 - Login semplice con nome autorizzato: `Lorenzo`.
 - Due macro-modalita in home: **Studio** (allenamento libero con aiuti, scelta multipla e mappa interattiva) e
   **Test e Memorizzazione** (ripasso del giorno a ripetizione spaziata e box errori).
-- Nelle sessioni di Test e Memorizzazione, le carte di tipo mappa si possono affrontare cliccando sulla mappa oppure
-  "a mente": visualizzi la regione, riveli la risposta e ti autovaluti con "L'avevo indovinata" / "Non la sapevo".
+- Nelle sessioni di Test e Memorizzazione, ogni carta (mappa, capoluoghi, province, confini, viaggio, indizi) si puo
+  affrontare normalmente oppure "a mente": ci pensi, riveli la risposta e ti autovaluti con "L'avevo indovinata" /
+  "Non la sapevo".
 - Tre difficolta: facile con suggerimenti, medio con pochi aiuti, difficile senza suggerimenti.
 - Sei modalita: mappa cieca, capoluoghi, province, confini, viaggio e indizi culturali.
 - Mappa interattiva delle 20 regioni italiane.
