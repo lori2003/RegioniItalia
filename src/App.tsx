@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   Award,
   Brain,
   CheckCircle2,
@@ -214,6 +215,35 @@ function App() {
     [activeDifficulty, challenge, feedback, persist, progress, sessionKind],
   );
 
+  const advance = useCallback(() => {
+    if (!progress) return;
+
+    if (sessionKind === 'libero') {
+      setActiveDifficulty(freeDifficulty);
+      setChallenge(createChallenge(mode, freeDifficulty, progress));
+      setSecondsLeft(DIFFICULTIES[freeDifficulty].timeLimit);
+      setFeedback(null);
+      setTypedAnswer('');
+      setSelectedRegion(undefined);
+      return;
+    }
+
+    const nextIndex = sessionIndex + 1;
+    if (nextIndex >= sessionQueue.length) {
+      setView('summary');
+      return;
+    }
+    setSessionIndex(nextIndex);
+    loadCardChallenge(sessionQueue[nextIndex], progress);
+  }, [freeDifficulty, loadCardChallenge, mode, progress, sessionIndex, sessionKind, sessionQueue]);
+
+  useEffect(() => {
+    if (view !== 'game' || !feedback) return;
+    const delay = feedback.correct ? 1300 : 2600;
+    const timer = window.setTimeout(advance, delay);
+    return () => window.clearTimeout(timer);
+  }, [advance, feedback, view]);
+
   useEffect(() => {
     if (view !== 'game' || !progress || feedback || secondsLeft === null || secondsLeft <= 0) return;
 
@@ -274,28 +304,6 @@ function App() {
     event.preventDefault();
     if (!typedAnswer.trim()) return;
     completeMission(typedAnswer);
-  }
-
-  function advance() {
-    if (!progress) return;
-
-    if (sessionKind === 'libero') {
-      setActiveDifficulty(freeDifficulty);
-      setChallenge(createChallenge(mode, freeDifficulty, progress));
-      setSecondsLeft(DIFFICULTIES[freeDifficulty].timeLimit);
-      setFeedback(null);
-      setTypedAnswer('');
-      setSelectedRegion(undefined);
-      return;
-    }
-
-    const nextIndex = sessionIndex + 1;
-    if (nextIndex >= sessionQueue.length) {
-      setView('summary');
-      return;
-    }
-    setSessionIndex(nextIndex);
-    loadCardChallenge(sessionQueue[nextIndex], progress);
   }
 
   function changeFreeMode(nextMode: GameModeId) {
@@ -458,17 +466,23 @@ function App() {
       ) : (
         <section className="game-grid">
           <section className="mission-panel" aria-labelledby="mission-title">
+            <div className="mission-head">
+              <button type="button" className="back-button" onClick={goHome} aria-label="Torna alla home">
+                <ArrowLeft size={18} />
+                <span>Home</span>
+              </button>
+              {sessionKind !== 'libero' ? (
+                <button type="button" className="link-action" onClick={() => setView('summary')}>
+                  Termina
+                </button>
+              ) : null}
+            </div>
             {sessionKind !== 'libero' ? (
               <div className="session-bar">
-                <div className="session-bar-head">
-                  <span className="session-tag">
-                    {sessionKind === 'errori' ? <XCircle size={15} /> : <Sparkles size={15} />}{' '}
-                    {sessionKind === 'errori' ? 'Errori' : 'Ripasso'} · carta {Math.min(sessionIndex + 1, sessionQueue.length)}/{sessionQueue.length}
-                  </span>
-                  <button type="button" className="link-action" onClick={() => setView('summary')}>
-                    Termina
-                  </button>
-                </div>
+                <span className="session-tag">
+                  {sessionKind === 'errori' ? <XCircle size={15} /> : <Sparkles size={15} />}{' '}
+                  {sessionKind === 'errori' ? 'Errori' : 'Ripasso'} · carta {Math.min(sessionIndex + 1, sessionQueue.length)}/{sessionQueue.length}
+                </span>
                 <div className="progress-track">
                   <span style={{ width: `${sessionQueue.length ? Math.round((sessionIndex / sessionQueue.length) * 100) : 0}%` }} />
                 </div>
@@ -661,11 +675,17 @@ function App() {
               </div>
             ) : null}
 
+            {feedback ? (
+              <div className="auto-advance-track" aria-hidden="true">
+                <span style={{ animationDuration: `${feedback.correct ? 1300 : 2600}ms` }} />
+              </div>
+            ) : null}
+
             <div className="mission-actions">
               {feedback ? (
                 <button type="button" className="primary-action" onClick={advance}>
                   <RefreshCw size={18} />
-                  {sessionKind === 'libero' ? 'Nuova missione' : 'Continua'}
+                  Avanti subito
                 </button>
               ) : (
                 <span className="points-note">+{difficultySettings.points} punti se corretta</span>

@@ -638,17 +638,43 @@ button:focus-visible {
   animation: rise 0.35s ease both;
 }
 
-/* ===== Session bar / free controls ===== */
-.session-bar {
-  display: grid;
-  gap: 8px;
-}
-
-.session-bar-head {
+/* ===== Mission head / back button ===== */
+.mission-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.back-button:hover {
+  background: var(--paper);
+  color: var(--primary);
+}
+
+/* ===== Session bar / free controls ===== */
+.session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.session-bar .progress-track {
+  flex: 1 1 100%;
 }
 
 .session-tag {
@@ -831,6 +857,22 @@ button:focus-visible {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.auto-advance-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.auto-advance-track span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  animation-name: shrink-bar;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
 }
 
 .mission-actions {
@@ -1218,6 +1260,15 @@ button:focus-visible {
 }
 
 /* ===== Animations ===== */
+@keyframes shrink-bar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
 @keyframes rise {
   from {
     opacity: 0;

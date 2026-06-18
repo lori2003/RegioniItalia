@@ -16,6 +16,10 @@ Il codice sorgente sta su `main`; la versione pubblicata da GitHub Pages sta sul
 - Nelle sessioni di Test e Memorizzazione, ogni carta (mappa, capoluoghi, province, confini, viaggio, indizi) si puo
   affrontare normalmente oppure "a mente": ci pensi, riveli la risposta e ti autovaluti con "L'avevo indovinata" /
   "Non la sapevo".
+- Dopo ogni risposta (in Studio e in Test e Memorizzazione) la carta successiva parte da sola dopo pochi secondi,
+  senza dover cliccare "Continua": il pulsante "Avanti subito" resta disponibile solo per saltare l'attesa.
+- Un bottone "Home" sempre visibile in alto nella schermata di gioco permette di tornare subito alla home, sia da
+  Studio che da Test e Memorizzazione, senza dover scorrere la pagina.
 - Tre difficolta: facile con suggerimenti, medio con pochi aiuti, difficile senza suggerimenti.
 - Sei modalita: mappa cieca, capoluoghi, province, confini, viaggio e indizi culturali.
 - Mappa interattiva delle 20 regioni italiane.
