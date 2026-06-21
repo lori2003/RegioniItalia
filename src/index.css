@@ -1,108 +1,141 @@
-:root {
-  color-scheme: light dark;
+/* ==========================================================================
+   Atlante d'Italia — design system (frontend nuovo)
+   Tema chiaro/scuro pilotato da [data-theme] su <html>.
+   ========================================================================== */
 
-  --bg: #f4f1ea;
-  --paper: #ffffff;
-  --paper-2: #faf7f0;
-  --ink: #14242e;
-  --muted: #5d6b73;
-  --line: #e3ddd0;
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
 
-  --primary: #12455f;
-  --primary-2: #0c3346;
-  --on-primary: #ffffff;
-  --accent: #1f9d61;
-  --accent-2: #157a4a;
-  --on-accent: #ffffff;
+  --bg: #eceffa;
+  --bg-glow-1: rgba(99, 91, 255, 0.18);
+  --bg-glow-2: rgba(244, 114, 182, 0.14);
 
-  --ok: #157a4a;
-  --ok-bg: #e7f6ec;
-  --ok-line: #a9dcbd;
-  --danger: #c2392a;
-  --danger-bg: #fdecea;
-  --danger-line: #f0b3aa;
-  --warn: #8a6300;
-  --warn-bg: #fff6da;
-  --warn-line: #f0d481;
+  --surface: #ffffff;
+  --surface-2: #f4f6fd;
+  --surface-3: #eaeefb;
+  --surface-translucent: rgba(255, 255, 255, 0.72);
 
-  --m-new: #dcd6c8;
-  --m-learning: #f0b54e;
-  --m-young: #8ed29f;
-  --m-mature: #3aae6c;
-  --m-mastered: #15794a;
+  --text: #161a2b;
+  --text-soft: #3c4258;
+  --muted: #6a7290;
+  --border: #e2e6f4;
+  --border-strong: #cdd4ea;
 
-  --sea: #e3f0f7;
-  --map-blank: #f3eee2;
-  --map-stroke: #6b7e88;
-  --map-label: #10222f;
+  --brand: #5b4bff;
+  --brand-2: #8b5cf6;
+  --brand-soft: rgba(91, 75, 255, 0.12);
+  --on-brand: #ffffff;
+
+  --accent: #f59e0b;
+  --accent-soft: rgba(245, 158, 11, 0.16);
+
+  --ok: #15a35a;
+  --ok-bg: #e4f7ec;
+  --ok-line: #a7e3c1;
+  --danger: #e11d48;
+  --danger-bg: #fdecf0;
+  --danger-line: #f6b8c7;
+
+  --m-new: #d6dbec;
+  --m-learning: #f3c969;
+  --m-young: #8fd6ac;
+  --m-mature: #3fb87f;
+  --m-mastered: #1d8f5c;
+
+  --sea: #dbe6fb;
+  --map-blank: #eef1fb;
+  --map-stroke: #aab3d4;
+  --map-label: #20253b;
   --map-label-halo: #ffffff;
 
-  --shadow: 0 18px 48px rgba(20, 36, 46, 0.14);
-  --shadow-soft: 0 8px 24px rgba(20, 36, 46, 0.08);
+  --shadow: 0 24px 60px -20px rgba(35, 31, 90, 0.32);
+  --shadow-soft: 0 12px 32px -16px rgba(35, 31, 90, 0.26);
+  --ring: 0 0 0 3px rgba(91, 75, 255, 0.32);
 
-  --r-card: 16px;
-  --r-control: 12px;
+  --r-xl: 26px;
+  --r-lg: 20px;
+  --r-md: 14px;
+  --r-sm: 10px;
 
-  --font-display: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
-
-  font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: var(--ink);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --font-display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1822;
-    --paper: #17242f;
-    --paper-2: #1d2e3c;
-    --ink: #eaf1f5;
-    --muted: #95a7b3;
-    --line: #2b3f4d;
+:root[data-theme='dark'] {
+  color-scheme: dark;
 
-    --primary: #1f6f93;
-    --primary-2: #2a82a8;
-    --on-primary: #ffffff;
-    --accent: #2bb978;
-    --accent-2: #38c585;
-    --on-accent: #06231a;
+  --bg: #080b15;
+  --bg-glow-1: rgba(124, 108, 255, 0.22);
+  --bg-glow-2: rgba(236, 72, 153, 0.14);
 
-    --ok: #5cc98f;
-    --ok-bg: #16301f;
-    --ok-line: #285c3c;
-    --danger: #f08272;
-    --danger-bg: #3a201c;
-    --danger-line: #6e2f27;
-    --warn: #e7c15a;
-    --warn-bg: #312a12;
-    --warn-line: #5c4a1c;
+  --surface: #121829;
+  --surface-2: #18203450;
+  --surface-3: #1d2740;
+  --surface-translucent: rgba(18, 24, 41, 0.72);
 
-    --m-new: #3a4a56;
-    --m-learning: #c98f2e;
-    --m-young: #3f9a63;
-    --m-mature: #2bb978;
-    --m-mastered: #7fe0aa;
+  --text: #e9edfb;
+  --text-soft: #c2c9e4;
+  --muted: #8b94b8;
+  --border: #25304c;
+  --border-strong: #324063;
 
-    --sea: #12303f;
-    --map-blank: #243845;
-    --map-stroke: #43606f;
-    --map-label: #eaf1f5;
-    --map-label-halo: #0f1822;
+  --brand: #8175ff;
+  --brand-2: #b07cff;
+  --brand-soft: rgba(129, 117, 255, 0.18);
+  --on-brand: #0a0d18;
 
-    --shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
-    --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.35);
-  }
+  --accent: #fbbf24;
+  --accent-soft: rgba(251, 191, 36, 0.16);
+
+  --ok: #4ade80;
+  --ok-bg: #11301f;
+  --ok-line: #1f5436;
+  --danger: #fb7185;
+  --danger-bg: #3a1622;
+  --danger-line: #6b2638;
+
+  --m-new: #2c3856;
+  --m-learning: #caa148;
+  --m-young: #3f9f6e;
+  --m-mature: #34c184;
+  --m-mastered: #7ff0b6;
+
+  --sea: #0f1b30;
+  --map-blank: #1b2540;
+  --map-stroke: #3a4870;
+  --map-label: #e9edfb;
+  --map-label-halo: #080b15;
+
+  --shadow: 0 28px 70px -24px rgba(0, 0, 0, 0.72);
+  --shadow-soft: 0 16px 40px -22px rgba(0, 0, 0, 0.6);
+  --ring: 0 0 0 3px rgba(129, 117, 255, 0.4);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+}
+
+body {
+  font: 16px/1.55 var(--font-body);
+  color: var(--text);
+  background:
+    radial-gradient(1100px 700px at 12% -8%, var(--bg-glow-1), transparent 55%),
+    radial-gradient(900px 620px at 100% 0%, var(--bg-glow-2), transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
+  min-height: 100svh;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -112,13 +145,32 @@ body {
 h1,
 h2,
 h3,
-p {
-  margin-top: 0;
+h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  letter-spacing: -0.01em;
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--brand-soft);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--r-sm);
 }

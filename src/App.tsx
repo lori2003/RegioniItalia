@@ -9,15 +9,20 @@ import {
   Crown,
   Eye,
   Flame,
-  GraduationCap,
+  Gauge,
+  LayoutDashboard,
   Lightbulb,
   LockKeyhole,
   Map,
   MapPin,
+  Menu,
+  Moon,
   RefreshCw,
   RotateCcw,
   Route,
   Sparkles,
+  Sun,
+  Swords,
   Target,
   ThumbsDown,
   ThumbsUp,
@@ -25,7 +30,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import './App.css';
 import { ItalyMap } from './components/ItalyMap';
 import { provinceTypeLabels, REGIONS } from './data/regions';
@@ -49,6 +54,7 @@ import {
   PLAYER_NAME,
 } from './lib/game';
 import { loadProgress, refreshCloudProgress, saveProgress } from './lib/progressStore';
+import { useTheme } from './lib/theme';
 import type {
   Challenge,
   DifficultyId,
@@ -61,20 +67,52 @@ import type {
 } from './types';
 
 type View = 'home' | 'game' | 'summary';
-type HomeTab = 'studio' | 'test';
+type Section = 'cruscotto' | 'ripasso' | 'errori' | 'allenamento';
 type AnswerStyle = 'click' | 'mente';
 type SessionStats = { answered: number; correct: number; wrong: number; newCards: number };
 
-const MASTERY_META: Record<MasteryLevel, { label: string; className: string }> = {
-  new: { label: 'Da scoprire', className: 'm-new' },
-  learning: { label: 'In apprendimento', className: 'm-learning' },
-  young: { label: 'Giovane', className: 'm-young' },
-  mature: { label: 'Matura', className: 'm-mature' },
-  mastered: { label: 'Padroneggiata', className: 'm-mastered' },
+const MASTERY_META: Record<MasteryLevel, { label: string; varName: string }> = {
+  new: { label: 'Da scoprire', varName: '--m-new' },
+  learning: { label: 'In apprendimento', varName: '--m-learning' },
+  young: { label: 'Giovane', varName: '--m-young' },
+  mature: { label: 'Matura', varName: '--m-mature' },
+  mastered: { label: 'Padroneggiata', varName: '--m-mastered' },
 };
 const MASTERY_ORDER: MasteryLevel[] = ['new', 'learning', 'young', 'mature', 'mastered'];
 
+const SECTIONS: { id: Section; label: string; icon: ReactNode }[] = [
+  { id: 'cruscotto', label: 'Cruscotto', icon: <LayoutDashboard size={19} /> },
+  { id: 'ripasso', label: 'Ripasso', icon: <Sparkles size={19} /> },
+  { id: 'errori', label: 'Box errori', icon: <XCircle size={19} /> },
+  { id: 'allenamento', label: 'Allenamento', icon: <Swords size={19} /> },
+];
+
+function ThemeToggle({ theme, onToggle }: { theme: 'light' | 'dark'; onToggle: () => void }) {
+  const dark = theme === 'dark';
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={onToggle}
+      role="switch"
+      aria-checked={dark}
+      aria-label={dark ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+      title={dark ? 'Tema scuro attivo' : 'Tema chiaro attivo'}
+    >
+      <span className="theme-toggle__icon" aria-hidden="true">
+        <Sun size={16} />
+      </span>
+      <span className="theme-toggle__icon" aria-hidden="true">
+        <Moon size={16} />
+      </span>
+      <span className={`theme-toggle__thumb ${dark ? 'is-dark' : ''}`} aria-hidden="true" />
+    </button>
+  );
+}
+
 function App() {
+  const { theme, toggleTheme } = useTheme();
+
   const [loginName, setLoginName] = useState(() => localStorage.getItem('italia-quest-login') ?? '');
   const [loginError, setLoginError] = useState('');
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
@@ -82,7 +120,8 @@ function App() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle', label: 'Pronto' });
 
   const [view, setView] = useState<View>('home');
-  const [homeTab, setHomeTab] = useState<HomeTab>('test');
+  const [section, setSection] = useState<Section>('cruscotto');
+  const [navOpen, setNavOpen] = useState(false);
   const [sessionKind, setSessionKind] = useState<SessionKind>('ripasso');
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
@@ -296,6 +335,7 @@ function App() {
     localStorage.setItem('italia-quest-login', PLAYER_NAME);
     setProgress(result.progress);
     setView('home');
+    setSection('cruscotto');
     setSyncStatus(result.status);
     setIsLoadingProgress(false);
   }
@@ -343,6 +383,14 @@ function App() {
     const freshProgress = createDefaultProgress();
     void persist(freshProgress);
     setView('home');
+    setSection('cruscotto');
+  }
+
+  function goToSection(next: Section) {
+    setSection(next);
+    setView('home');
+    setFeedback(null);
+    setNavOpen(false);
   }
 
   function goHome() {
@@ -367,19 +415,22 @@ function App() {
 
   if (!progress) {
     return (
-      <main className="login-screen">
-        <section className="login-panel" aria-labelledby="login-title">
-          <div className="brand-mark" aria-hidden="true">
-            <Compass size={34} />
-          </div>
-          <p className="eyebrow">Italia Quest</p>
-          <h1 id="login-title">La conquista delle regioni</h1>
-          <p className="login-copy">
-            Entra con il nome autorizzato e ritrova gli stessi progressi da desktop e telefono.
+      <main className="login">
+        <div className="login__topbar">
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </div>
+        <section className="login__card" aria-labelledby="login-title">
+          <span className="login__badge" aria-hidden="true">
+            <Compass size={32} />
+          </span>
+          <p className="eyebrow">Atlante d'Italia</p>
+          <h1 id="login-title">Impara le regioni, una carta alla volta</h1>
+          <p className="login__copy">
+            Ripetizione spaziata, mappa interattiva e progressi sincronizzati tra desktop e telefono.
           </p>
-          <form className="login-form" onSubmit={handleLogin}>
+          <form className="login__form" onSubmit={handleLogin}>
             <label htmlFor="player-name">Nome di accesso</label>
-            <div className="login-row">
+            <div className="login__row">
               <input
                 id="player-name"
                 value={loginName}
@@ -387,16 +438,18 @@ function App() {
                 placeholder="Lorenzo"
                 autoComplete="given-name"
               />
-              <button type="submit" disabled={isLoadingProgress}>
+              <button type="submit" className="btn btn--brand" disabled={isLoadingProgress}>
                 <LockKeyhole size={18} />
                 Entra
               </button>
             </div>
             {loginError ? <p className="form-error">{loginError}</p> : null}
           </form>
-          <div className="login-footnote">
+          <div className="login__foot">
             <Cloud size={16} />
-            <span>{isLoadingProgress ? 'Carico i progressi...' : 'Supabase se configurato, fallback locale se offline.'}</span>
+            <span>
+              {isLoadingProgress ? 'Carico i progressi...' : 'Supabase se configurato, altrimenti salvataggio locale.'}
+            </span>
           </div>
         </section>
       </main>
@@ -404,382 +457,387 @@ function App() {
   }
 
   const masteredCount = masteryCounts.mastered;
+  const pageTitle =
+    view === 'game'
+      ? sessionKind === 'libero'
+        ? 'Allenamento libero'
+        : sessionKind === 'errori'
+          ? 'Correzione errori'
+          : 'Ripasso del giorno'
+      : view === 'summary'
+        ? 'Riepilogo sessione'
+        : SECTIONS.find((item) => item.id === section)?.label ?? 'Cruscotto';
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <button type="button" className="title-block" onClick={goHome} aria-label="Torna alla home">
-          <div className="brand-mark small" aria-hidden="true">
-            <Map size={24} />
-          </div>
-          <div>
-            <p className="eyebrow">Italia Quest</p>
-            <h1>La conquista delle regioni</h1>
-          </div>
+    <div className={`atlas ${navOpen ? 'is-nav-open' : ''}`}>
+      <button
+        type="button"
+        className="atlas__scrim"
+        aria-label="Chiudi il menu"
+        tabIndex={navOpen ? 0 : -1}
+        onClick={() => setNavOpen(false)}
+      />
+
+      <aside className="atlas__rail" aria-label="Navigazione principale">
+        <button type="button" className="atlas__brand" onClick={() => goToSection('cruscotto')}>
+          <span className="atlas__logo" aria-hidden="true">
+            <Compass size={22} />
+          </span>
+          <span className="atlas__brand-text">
+            <strong>Atlante</strong>
+            <small>d'Italia</small>
+          </span>
         </button>
-        <div className="status-row">
-          <span className="pill streak-pill" title="Serie di risposte corrette">
-            <Flame size={16} />
-            {progress.streak}
-          </span>
-          <span className={`pill sync-pill ${syncStatus.kind}`}>
-            <Cloud size={16} />
-            {syncStatus.label}
-          </span>
-          <span className="pill player-pill">Lorenzo</span>
+
+        <nav className="atlas__nav">
+          {SECTIONS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`atlas__nav-item ${view === 'home' && section === item.id ? 'is-active' : ''}`}
+              onClick={() => goToSection(item.id)}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="atlas__rail-foot">
+          <div className="atlas__player">
+            <span className="atlas__avatar" aria-hidden="true">
+              {PLAYER_NAME.charAt(0)}
+            </span>
+            <span>
+              <strong>{PLAYER_NAME}</strong>
+              <small className={`sync-dot sync-dot--${syncStatus.kind}`}>{syncStatus.label}</small>
+            </span>
+          </div>
+          <button type="button" className="atlas__reset" onClick={resetProgressAndRetest}>
+            <RotateCcw size={16} />
+            Riparti da zero
+          </button>
         </div>
-      </header>
+      </aside>
 
-      {view === 'home' ? (
-        <HomeView
-          progress={progress}
-          review={review}
-          levelInfo={levelInfo}
-          masteryMap={masteryMap}
-          masteryCounts={masteryCounts}
-          masteredCount={masteredCount}
-          homeTab={homeTab}
-          freeMode={mode}
-          freeDifficulty={freeDifficulty}
-          selectedRegion={selectedRegion}
-          activeRegion={activeRegion}
-          onSelectHomeTab={setHomeTab}
-          onStartReview={startReview}
-          onStartFree={startFree}
-          onStartErrors={(keys) => startErrorSession(keys, progress)}
-          onSelectMode={setMode}
-          onSelectDifficulty={setFreeDifficulty}
-          onRegionSelect={setSelectedRegion}
-          onReset={resetProgressAndRetest}
-        />
-      ) : view === 'summary' ? (
-        <SummaryView
-          stats={sessionStats}
-          masteredCount={masteredCount}
-          showErrorPrompt={sessionKind === 'ripasso' && sessionWrongKeys.length > 0}
-          onHome={goHome}
-          onReviewNow={summaryReviewNow}
-          onToBox={summaryToBox}
-          onAgain={startReview}
-          canRepeat={Boolean(review && review.queue.length > 0)}
-        />
-      ) : (
-        <section className="game-grid">
-          <section className="mission-panel" aria-labelledby="mission-title">
-            <div className="mission-head">
-              <button type="button" className="back-button" onClick={goHome} aria-label="Torna alla home">
-                <ArrowLeft size={18} />
-                <span>Home</span>
-              </button>
-              {sessionKind !== 'libero' ? (
-                <button type="button" className="link-action" onClick={() => setView('summary')}>
-                  Termina
-                </button>
-              ) : null}
-            </div>
-            {sessionKind !== 'libero' ? (
-              <div className="session-bar">
-                <span className="session-tag">
-                  {sessionKind === 'errori' ? <XCircle size={15} /> : <Sparkles size={15} />}{' '}
-                  {sessionKind === 'errori' ? 'Errori' : 'Ripasso'} · carta {Math.min(sessionIndex + 1, sessionQueue.length)}/{sessionQueue.length}
-                </span>
-                <div className="progress-track">
-                  <span style={{ width: `${sessionQueue.length ? Math.round((sessionIndex / sessionQueue.length) * 100) : 0}%` }} />
-                </div>
-              </div>
-            ) : (
-              <div className="free-controls">
-                <div className="segmented small">
-                  {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={freeDifficulty === key ? 'active' : ''}
-                      onClick={() => changeFreeDifficulty(key)}
-                      title={DIFFICULTIES[key].description}
-                    >
-                      {DIFFICULTIES[key].label}
+      <div className="atlas__body">
+        <header className="atlas__topbar">
+          <button type="button" className="icon-btn atlas__menu" onClick={() => setNavOpen((open) => !open)} aria-label="Apri il menu">
+            <Menu size={20} />
+          </button>
+          <div className="atlas__heading">
+            <p className="eyebrow">Atlante d'Italia</p>
+            <h1>{pageTitle}</h1>
+          </div>
+          <div className="atlas__topbar-actions">
+            <span className="chip chip--streak" title="Serie di risposte corrette">
+              <Flame size={15} />
+              {progress.streak}
+            </span>
+            <span className="chip" title="Punteggio totale">
+              <Trophy size={15} />
+              {progress.score}
+            </span>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
+        </header>
+
+        <main className="atlas__content">
+          {view === 'home' ? (
+            <HomeView
+              progress={progress}
+              review={review}
+              levelInfo={levelInfo}
+              masteryMap={masteryMap}
+              masteryCounts={masteryCounts}
+              masteredCount={masteredCount}
+              section={section}
+              freeMode={mode}
+              freeDifficulty={freeDifficulty}
+              selectedRegion={selectedRegion}
+              activeRegion={activeRegion}
+              onStartReview={startReview}
+              onStartFree={startFree}
+              onStartErrors={(keys) => startErrorSession(keys, progress)}
+              onSelectMode={setMode}
+              onSelectDifficulty={setFreeDifficulty}
+              onRegionSelect={setSelectedRegion}
+              onGoSection={goToSection}
+            />
+          ) : view === 'summary' ? (
+            <SummaryView
+              stats={sessionStats}
+              masteredCount={masteredCount}
+              showErrorPrompt={sessionKind === 'ripasso' && sessionWrongKeys.length > 0}
+              onHome={goHome}
+              onReviewNow={summaryReviewNow}
+              onToBox={summaryToBox}
+              onAgain={startReview}
+              canRepeat={Boolean(review && review.queue.length > 0)}
+            />
+          ) : (
+            <section className="game">
+              <div className="game__main">
+                <div className="panel mission">
+                  <div className="mission__head">
+                    <button type="button" className="btn btn--ghost" onClick={goHome}>
+                      <ArrowLeft size={18} />
+                      Home
                     </button>
-                  ))}
-                </div>
-                <div className="mode-chips">
-                  {(Object.keys(GAME_MODES) as GameModeId[]).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={mode === key ? 'mode-chip active' : 'mode-chip'}
-                      onClick={() => changeFreeMode(key)}
-                      title={GAME_MODES[key].description}
-                    >
-                      {modeIcon(key)}
-                      <span>{GAME_MODES[key].label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+                    {sessionKind !== 'libero' ? (
+                      <button type="button" className="link-action" onClick={() => setView('summary')}>
+                        Termina sessione
+                      </button>
+                    ) : null}
+                  </div>
 
-            <div className="mission-topline">
-              <span className="pill mission-mode">{modeIcon(challenge.mode)}{GAME_MODES[challenge.mode].iconLabel}</span>
-              {secondsLeft !== null ? (
-                <span className={secondsLeft <= 6 ? 'pill timer danger' : 'pill timer'}>
-                  <Clock3 size={16} />
-                  {secondsLeft}s
-                </span>
-              ) : (
-                <span className="pill timer calm">
-                  <Clock3 size={16} />
-                  No timer
-                </span>
-              )}
-            </div>
+                  {sessionKind !== 'libero' ? (
+                    <div className="session-bar">
+                      <span className="session-bar__tag">
+                        {sessionKind === 'errori' ? <XCircle size={15} /> : <Sparkles size={15} />}
+                        {sessionKind === 'errori' ? 'Errori' : 'Ripasso'} · carta{' '}
+                        {Math.min(sessionIndex + 1, sessionQueue.length)}/{sessionQueue.length}
+                      </span>
+                      <div className="track">
+                        <span style={{ width: `${sessionQueue.length ? Math.round((sessionIndex / sessionQueue.length) * 100) : 0}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="free-controls">
+                      <div className="segmented">
+                        {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((key) => (
+                          <button
+                            key={key}
+                            type="button"
+                            className={freeDifficulty === key ? 'is-active' : ''}
+                            onClick={() => changeFreeDifficulty(key)}
+                            title={DIFFICULTIES[key].description}
+                          >
+                            {DIFFICULTIES[key].label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mode-chips">
+                        {(Object.keys(GAME_MODES) as GameModeId[]).map((key) => (
+                          <button
+                            key={key}
+                            type="button"
+                            className={mode === key ? 'mode-chip is-active' : 'mode-chip'}
+                            onClick={() => changeFreeMode(key)}
+                            title={GAME_MODES[key].description}
+                          >
+                            {modeIcon(key)}
+                            <span>{GAME_MODES[key].label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-            <h2 id="mission-title">{challenge.prompt}</h2>
-            <p className="mission-description">{difficultySettings.description}</p>
+                  <div className="mission__topline">
+                    <span className="chip chip--mode">
+                      {modeIcon(challenge.mode)}
+                      {GAME_MODES[challenge.mode].iconLabel}
+                    </span>
+                    {secondsLeft !== null ? (
+                      <span className={secondsLeft <= 6 ? 'chip chip--timer is-danger' : 'chip chip--timer'}>
+                        <Clock3 size={15} />
+                        {secondsLeft}s
+                      </span>
+                    ) : (
+                      <span className="chip chip--timer">
+                        <Clock3 size={15} />
+                        No timer
+                      </span>
+                    )}
+                  </div>
 
-            {sessionKind !== 'libero' ? (
-              <div className="answer-style-toggle">
-                <span className="control-label">Come vuoi rispondere?</span>
-                <div className="segmented small two-col">
-                  <button
-                    type="button"
-                    className={answerStyle === 'click' ? 'active' : ''}
-                    disabled={Boolean(feedback)}
-                    onClick={() => {
-                      setAnswerStyle('click');
-                      setSelfTestRevealed(false);
-                    }}
-                  >
-                    {challenge.mode === 'mappa' ? <MapPin size={15} /> : <CheckCircle2 size={15} />}
-                    {challenge.mode === 'mappa' ? 'Clicca la mappa' : 'Rispondi normalmente'}
-                  </button>
-                  <button
-                    type="button"
-                    className={answerStyle === 'mente' ? 'active' : ''}
-                    disabled={Boolean(feedback)}
-                    onClick={() => {
-                      setAnswerStyle('mente');
-                      setSelfTestRevealed(false);
-                    }}
-                  >
-                    <Brain size={15} /> A mente
-                  </button>
-                </div>
-              </div>
-            ) : null}
+                  <h2 className="mission__prompt">{challenge.prompt}</h2>
+                  <p className="mission__desc">{difficultySettings.description}</p>
 
-            {challenge.hints.length > 0 ? (
-              <div className="hint-list" aria-label="Suggerimenti">
-                {challenge.hints.map((hint) => (
-                  <span key={hint}>{hint}</span>
-                ))}
-              </div>
-            ) : (
-              <div className="hint-list empty">
-                <span>Zero suggerimenti: richiamo a memoria.</span>
-              </div>
-            )}
+                  {sessionKind !== 'libero' ? (
+                    <div className="answer-style">
+                      <span className="control-label">Come vuoi rispondere?</span>
+                      <div className="segmented segmented--two">
+                        <button
+                          type="button"
+                          className={answerStyle === 'click' ? 'is-active' : ''}
+                          disabled={Boolean(feedback)}
+                          onClick={() => {
+                            setAnswerStyle('click');
+                            setSelfTestRevealed(false);
+                          }}
+                        >
+                          {challenge.mode === 'mappa' ? <MapPin size={15} /> : <CheckCircle2 size={15} />}
+                          {challenge.mode === 'mappa' ? 'Clicca la mappa' : 'Rispondi'}
+                        </button>
+                        <button
+                          type="button"
+                          className={answerStyle === 'mente' ? 'is-active' : ''}
+                          disabled={Boolean(feedback)}
+                          onClick={() => {
+                            setAnswerStyle('mente');
+                            setSelfTestRevealed(false);
+                          }}
+                        >
+                          <Brain size={15} /> A mente
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
 
-            {challenge.expectsMapClick && !isSelfTest ? (
-              <div className="map-instruction">
-                <MapPin size={18} />
-                Clicca direttamente sulla regione corretta nella mappa.
-              </div>
-            ) : isSelfTest ? (
-              <div className="self-test-panel">
-                {feedback ? null : !selfTestRevealed ? (
-                  <>
-                    <p className="self-test-hint">
-                      {isSelfTestMappa
-                        ? `Visualizza a mente dove si trova ${challenge.correctDisplay}, poi rivela la risposta.`
-                        : 'Pensa alla risposta a mente, poi rivelala.'}
-                    </p>
-                    <button type="button" className="primary-action" onClick={() => setSelfTestRevealed(true)}>
-                      <Eye size={18} />
-                      Mostra la risposta
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="self-test-hint">
-                      {isSelfTestMappa ? (
+                  {challenge.hints.length > 0 ? (
+                    <div className="hint-list" aria-label="Suggerimenti">
+                      {challenge.hints.map((hint) => (
+                        <span key={hint}>
+                          <Lightbulb size={13} />
+                          {hint}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="hint-list is-empty">
+                      <span>Zero suggerimenti: richiamo a memoria.</span>
+                    </div>
+                  )}
+
+                  {challenge.expectsMapClick && !isSelfTest ? (
+                    <div className="map-instruction">
+                      <MapPin size={18} />
+                      Clicca direttamente sulla regione corretta nella mappa.
+                    </div>
+                  ) : isSelfTest ? (
+                    <div className="self-test">
+                      {feedback ? null : !selfTestRevealed ? (
                         <>
-                          La regione corretta e evidenziata sulla mappa: <strong>{challenge.correctDisplay}</strong>.
+                          <p className="self-test__hint">
+                            {isSelfTestMappa
+                              ? `Visualizza a mente dove si trova ${challenge.correctDisplay}, poi rivela la risposta.`
+                              : 'Pensa alla risposta a mente, poi rivelala.'}
+                          </p>
+                          <button type="button" className="btn btn--brand" onClick={() => setSelfTestRevealed(true)}>
+                            <Eye size={18} />
+                            Mostra la risposta
+                          </button>
                         </>
                       ) : (
                         <>
-                          Risposta corretta: <strong>{challenge.correctDisplay}</strong>.
+                          <p className="self-test__hint">
+                            {isSelfTestMappa ? (
+                              <>
+                                La regione corretta è evidenziata sulla mappa: <strong>{challenge.correctDisplay}</strong>.
+                              </>
+                            ) : (
+                              <>
+                                Risposta corretta: <strong>{challenge.correctDisplay}</strong>.
+                              </>
+                            )}{' '}
+                            L'avevi indovinata a mente?
+                          </p>
+                          <div className="self-test__grade">
+                            <button
+                              type="button"
+                              className="btn btn--ok"
+                              onClick={() => completeMission('', true, 'Autovalutazione: sapevi la risposta.')}
+                            >
+                              <ThumbsUp size={18} />
+                              L'avevo indovinata
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--outline"
+                              onClick={() => completeMission('', false, 'Autovalutazione: da ripassare.')}
+                            >
+                              <ThumbsDown size={18} />
+                              Non la sapevo
+                            </button>
+                          </div>
                         </>
-                      )}{' '}
-                      L'avevi indovinata a mente?
-                    </p>
-                    <div className="self-grade-actions">
-                      <button
-                        type="button"
-                        className="primary-action"
-                        onClick={() => completeMission('', true, 'Autovalutazione: sapevi la risposta.')}
-                      >
-                        <ThumbsUp size={18} />
-                        L'avevo indovinata
-                      </button>
-                      <button
-                        type="button"
-                        className="outline-action"
-                        onClick={() => completeMission('', false, 'Autovalutazione: da ripassare.')}
-                      >
-                        <ThumbsDown size={18} />
-                        Non la sapevo
-                      </button>
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
-            ) : challenge.options.length > 0 ? (
-              <div className="answer-grid">
-                {challenge.options.map((option) => (
-                  <button key={option} type="button" disabled={Boolean(feedback)} onClick={() => completeMission(option)}>
-                    {option}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <form className="answer-form" onSubmit={submitTypedAnswer}>
-                <input
-                  value={typedAnswer}
-                  onChange={(event) => setTypedAnswer(event.target.value)}
-                  placeholder={requiresFreeText ? 'Scrivi la risposta' : ''}
-                  disabled={Boolean(feedback)}
-                  autoFocus
-                />
-                <button type="submit" disabled={Boolean(feedback)}>
-                  <CheckCircle2 size={18} />
-                  Conferma
-                </button>
-              </form>
-            )}
+                  ) : challenge.options.length > 0 ? (
+                    <div className="answer-grid">
+                      {challenge.options.map((option) => (
+                        <button key={option} type="button" disabled={Boolean(feedback)} onClick={() => completeMission(option)}>
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <form className="answer-form" onSubmit={submitTypedAnswer}>
+                      <input
+                        value={typedAnswer}
+                        onChange={(event) => setTypedAnswer(event.target.value)}
+                        placeholder={requiresFreeText ? 'Scrivi la risposta' : ''}
+                        disabled={Boolean(feedback)}
+                        autoFocus
+                      />
+                      <button type="submit" className="btn btn--brand" disabled={Boolean(feedback)}>
+                        <CheckCircle2 size={18} />
+                        Conferma
+                      </button>
+                    </form>
+                  )}
 
-            {feedback ? (
-              <div className={feedback.correct ? 'feedback correct' : 'feedback wrong'} aria-live="polite">
-                {feedback.correct ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
-                <span>{feedback.text}</span>
-              </div>
-            ) : null}
+                  {feedback ? (
+                    <div className={feedback.correct ? 'feedback is-correct' : 'feedback is-wrong'} aria-live="polite">
+                      {feedback.correct ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+                      <span>{feedback.text}</span>
+                    </div>
+                  ) : null}
 
-            {feedback ? (
-              <div className="recall-card">
-                <span className="recall-head">
-                  <Lightbulb size={15} /> Per ricordarla
-                </span>
-                <p className="recall-mnemonic">{activeRegion.mnemonic}</p>
-                <p className="recall-clue">{activeRegion.cultureClue}</p>
-              </div>
-            ) : null}
+                  {feedback ? (
+                    <div className="recall">
+                      <span className="recall__head">
+                        <Lightbulb size={15} /> Per ricordarla
+                      </span>
+                      <p className="recall__mnemonic">{activeRegion.mnemonic}</p>
+                      <p className="recall__clue">{activeRegion.cultureClue}</p>
+                    </div>
+                  ) : null}
 
-            {feedback ? (
-              <div className="auto-advance-track" aria-hidden="true">
-                <span style={{ animationDuration: `${feedback.correct ? 1300 : 2600}ms` }} />
-              </div>
-            ) : null}
+                  {feedback ? (
+                    <div className="auto-advance" aria-hidden="true">
+                      <span style={{ animationDuration: `${feedback.correct ? 1300 : 2600}ms` }} />
+                    </div>
+                  ) : null}
 
-            <div className="mission-actions">
-              {feedback ? (
-                <button type="button" className="primary-action" onClick={advance}>
-                  <RefreshCw size={18} />
-                  Avanti subito
-                </button>
-              ) : (
-                <span className="points-note">+{difficultySettings.points} punti se corretta</span>
-              )}
-              {feedback ? <span className="points-note">+{difficultySettings.points} punti</span> : null}
-            </div>
-          </section>
-
-          <section className="map-panel" aria-label="Mappa">
-            <ItalyMap
-              targetRegion={targetMapRegion}
-              selectedRegion={selectedRegion}
-              masteryByRegion={masteryMap}
-              expectsMapClick={challenge.expectsMapClick && !feedback && !isSelfTestMappa}
-              revealMastery={false}
-              onRegionSelect={handleRegionSelect}
-            />
-          </section>
-
-          <aside className="progress-panel" aria-label="Progressi">
-            <div className="stat-card primary">
-              <Trophy size={20} />
-              <div>
-                <span>Punteggio</span>
-                <strong>{progress.score}</strong>
-              </div>
-            </div>
-            <div className="stat-card">
-              <Target size={20} />
-              <div>
-                <span>Padroneggiate</span>
-                <strong>{masteredCount}/20</strong>
-              </div>
-            </div>
-            <div className="stat-card">
-              <Crown size={20} />
-              <div>
-                <span>Regioni</span>
-                <strong>{progress.unlockedRegions.length}/20</strong>
-              </div>
-            </div>
-
-            {levelInfo ? (
-              <div className="level-box">
-                <div className="level-heading">
-                  <span>Livello {levelInfo.current.number}</span>
-                  <strong>{levelInfo.current.title}</strong>
+                  <div className="mission__foot">
+                    {feedback ? (
+                      <button type="button" className="btn btn--brand" onClick={advance}>
+                        <RefreshCw size={18} />
+                        Avanti subito
+                      </button>
+                    ) : (
+                      <span className="points-note">+{difficultySettings.points} punti se corretta</span>
+                    )}
+                    {feedback ? <span className="points-note">+{difficultySettings.points} punti</span> : null}
+                  </div>
                 </div>
-                <div className="progress-track">
-                  <span style={{ width: `${levelInfo.percent}%` }} />
+              </div>
+
+              <aside className="game__side">
+                <div className="panel map-panel">
+                  <ItalyMap
+                    targetRegion={targetMapRegion}
+                    selectedRegion={selectedRegion}
+                    masteryByRegion={masteryMap}
+                    expectsMapClick={challenge.expectsMapClick && !feedback && !isSelfTestMappa}
+                    revealMastery={false}
+                    onRegionSelect={handleRegionSelect}
+                  />
                 </div>
-                <p>{levelInfo.next ? levelInfo.next.goal : 'Italia completata: ora punta a padroneggiare tutto.'}</p>
-              </div>
-            ) : null}
-
-            <MasteryLegend counts={masteryCounts} />
-
-            <div className="region-focus">
-              <span className="control-label">Regione in focus</span>
-              <h3>{activeRegion.shortName}</h3>
-              <p>{activeRegion.mnemonic}</p>
-              <div className="province-strip">
-                {activeRegion.provinces.slice(0, 5).map((province) => (
-                  <span key={province.name} title={provinceTypeLabels[province.type]}>
-                    {province.code}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="badge-list">
-              <span className="control-label">Badge</span>
-              {BADGES.map((badge) => {
-                const earned = progress.badges.includes(badge.id);
-                return (
-                  <span key={badge.id} className={earned ? 'badge earned' : 'badge'} title={badge.requirement}>
-                    <Award size={15} />
-                    {badge.label}
-                  </span>
-                );
-              })}
-            </div>
-
-            <p className="sync-detail">{syncStatus.detail}</p>
-            <div className="retest-actions">
-              <button type="button" className="outline-action" onClick={goHome}>
-                <RotateCcw size={17} />
-                Torna alla home
-              </button>
-            </div>
-          </aside>
-        </section>
-      )}
-    </main>
+                <div className="mini-stats">
+                  <StatTile icon={<Trophy size={18} />} label="Punteggio" value={progress.score} tone="brand" />
+                  <StatTile icon={<Target size={18} />} label="Padroneggiate" value={`${masteredCount}/20`} />
+                  <StatTile icon={<Crown size={18} />} label="Regioni" value={`${progress.unlockedRegions.length}/20`} />
+                </div>
+              </aside>
+            </section>
+          )}
+        </main>
+      </div>
+    </div>
   );
 }
 
@@ -790,19 +848,18 @@ type HomeViewProps = {
   masteryMap: Record<string, MasteryLevel>;
   masteryCounts: Record<MasteryLevel, number>;
   masteredCount: number;
-  homeTab: HomeTab;
+  section: Section;
   freeMode: GameModeId;
   freeDifficulty: DifficultyId;
   selectedRegion?: string;
   activeRegion: RegionData;
-  onSelectHomeTab: (tab: HomeTab) => void;
   onStartReview: () => void;
   onStartFree: (mode: GameModeId, difficulty: DifficultyId) => void;
   onStartErrors: (keys: string[]) => void;
   onSelectMode: (mode: GameModeId) => void;
   onSelectDifficulty: (difficulty: DifficultyId) => void;
   onRegionSelect: (regionName: string) => void;
-  onReset: () => void;
+  onGoSection: (section: Section) => void;
 };
 
 function HomeView({
@@ -812,19 +869,18 @@ function HomeView({
   masteryMap,
   masteryCounts,
   masteredCount,
-  homeTab,
+  section,
   freeMode,
   freeDifficulty,
   selectedRegion,
   activeRegion,
-  onSelectHomeTab,
   onStartReview,
   onStartFree,
   onStartErrors,
   onSelectMode,
   onSelectDifficulty,
   onRegionSelect,
-  onReset,
+  onGoSection,
 }: HomeViewProps) {
   const dueCount = review?.dueCount ?? 0;
   const newInSession = review?.newInSession ?? 0;
@@ -833,228 +889,323 @@ function HomeView({
   const seenCards = totalCards - (review?.unseenTotal ?? totalCards);
   const errorBox = progress.reviewBox ?? [];
 
+  const mapBlock = (
+    <div className="panel map-panel map-panel--home">
+      <p className="map-caption">
+        <Map size={15} /> Mappa della memoria · {selectedRegion ?? 'tocca una regione'}
+      </p>
+      <ItalyMap
+        selectedRegion={selectedRegion}
+        masteryByRegion={masteryMap}
+        expectsMapClick={false}
+        onRegionSelect={onRegionSelect}
+      />
+      <MasteryLegend counts={masteryCounts} />
+    </div>
+  );
+
+  if (section === 'ripasso') {
+    return (
+      <div className="home home--single">
+        <ReviewCard
+          toReview={toReview}
+          newInSession={newInSession}
+          dueCount={dueCount}
+          seenCards={seenCards}
+          totalCards={totalCards}
+          onStartReview={onStartReview}
+        />
+        {mapBlock}
+      </div>
+    );
+  }
+
+  if (section === 'errori') {
+    return (
+      <div className="home home--single">
+        <ErrorBoxCard progress={progress} errorBox={errorBox} onStartErrors={onStartErrors} />
+        {mapBlock}
+      </div>
+    );
+  }
+
+  if (section === 'allenamento') {
+    return (
+      <div className="home home--single">
+        <FreeCard
+          freeMode={freeMode}
+          freeDifficulty={freeDifficulty}
+          onSelectMode={onSelectMode}
+          onSelectDifficulty={onSelectDifficulty}
+          onStartFree={onStartFree}
+        />
+        {mapBlock}
+      </div>
+    );
+  }
+
+  // section === 'cruscotto'
   return (
-    <>
-      <nav className="home-mode-tabs" aria-label="Modalita principali">
-        <button
-          type="button"
-          className={homeTab === 'studio' ? 'active' : ''}
-          onClick={() => onSelectHomeTab('studio')}
-        >
-          <GraduationCap size={18} />
-          Studio
-        </button>
-        <button type="button" className={homeTab === 'test' ? 'active' : ''} onClick={() => onSelectHomeTab('test')}>
-          <Brain size={18} />
-          Test e Memorizzazione
-        </button>
-      </nav>
+    <div className="home">
+      <div className="home__col">
+        <div className="stat-grid">
+          <StatTile icon={<Trophy size={18} />} label="Punteggio" value={progress.score} tone="brand" />
+          <StatTile icon={<Flame size={18} />} label="Miglior serie" value={progress.bestStreak} tone="accent" />
+          <StatTile icon={<Target size={18} />} label="Padroneggiate" value={`${masteredCount}/20`} />
+          <StatTile icon={<Crown size={18} />} label="Regioni" value={`${progress.unlockedRegions.length}/20`} />
+        </div>
 
-      <section className="home-actions">
-        {homeTab === 'test' ? (
-          <article className="action-card primary">
-            <div className="action-head">
-              <span className="action-icon ripasso" aria-hidden="true">
-                <Sparkles size={22} />
+        {levelInfo ? (
+          <div className="panel level-box">
+            <div className="level-box__head">
+              <span className="level-box__num">
+                <Gauge size={16} /> Livello {levelInfo.current.number}
               </span>
-              <div>
-                <h2>Ripasso del giorno</h2>
-                <p>
-                  {toReview > 0
-                    ? `Sessione di ${toReview} carte: ${newInSession} ${newInSession === 1 ? 'nuova' : 'nuove'}${dueCount > 0 ? ` e ${dueCount} in ripasso` : ''}.`
-                    : 'Hai studiato tutte le carte disponibili: nessun ripasso in scadenza ora.'}
-                </p>
-              </div>
+              <strong>{levelInfo.current.title}</strong>
             </div>
-            <div className="action-metrics">
-              <div>
-                <strong>{newInSession}</strong>
-                <span>nuove in sessione</span>
-              </div>
-              <div>
-                <strong>{dueCount}</strong>
-                <span>in scadenza</span>
-              </div>
-              <div>
-                <strong>
-                  {seenCards}
-                  <small>/{totalCards}</small>
-                </strong>
-                <span>carte viste</span>
-              </div>
+            <div className="track">
+              <span style={{ width: `${levelInfo.percent}%` }} />
             </div>
-            <p className="recall-mode-note">
-              <Brain size={15} /> Su ogni carta puoi rispondere a mente: ci pensi, riveli la risposta e ti
-              autovaluti con "Lo sapevo" / "Non lo sapevo".
-            </p>
-            {toReview > 0 ? (
-              <button type="button" className="primary-action big" onClick={onStartReview}>
-                <Sparkles size={18} />
-                Inizia ripasso
-              </button>
-            ) : (
-              <p className="all-clear">
-                <CheckCircle2 size={16} /> Tutto in pari! Hai visto {seenCards}/{totalCards} carte e non ci sono
-                ripassi in scadenza. Torna più tardi o allenati liberamente.
-              </p>
-            )}
-          </article>
+            <p>{levelInfo.next ? levelInfo.next.goal : 'Italia completata: ora punta a padroneggiare tutto.'}</p>
+          </div>
         ) : null}
 
-        {homeTab === 'test' ? (
-          <article className="action-card errori">
-            <div className="action-head">
-              <span className="action-icon errori" aria-hidden="true">
-                <XCircle size={22} />
+        <div className="quick-actions">
+          <button type="button" className="quick-action quick-action--brand" onClick={() => onGoSection('ripasso')}>
+            <Sparkles size={20} />
+            <span>
+              <strong>Ripasso del giorno</strong>
+              <small>{toReview > 0 ? `${toReview} carte pronte` : 'tutto in pari'}</small>
+            </span>
+          </button>
+          <button type="button" className="quick-action" onClick={() => onGoSection('errori')}>
+            <XCircle size={20} />
+            <span>
+              <strong>Box errori</strong>
+              <small>{errorBox.length > 0 ? `${errorBox.length} da correggere` : 'nessun errore'}</small>
+            </span>
+          </button>
+          <button type="button" className="quick-action" onClick={() => onGoSection('allenamento')}>
+            <Swords size={20} />
+            <span>
+              <strong>Allenamento libero</strong>
+              <small>senza limiti</small>
+            </span>
+          </button>
+        </div>
+
+        <div className="panel region-focus">
+          <span className="control-label">Regione in focus</span>
+          <h3>{activeRegion.shortName}</h3>
+          <p>{activeRegion.mnemonic}</p>
+          <div className="province-strip">
+            {activeRegion.provinces.slice(0, 6).map((province) => (
+              <span key={province.name} title={provinceTypeLabels[province.type]}>
+                {province.code}
               </span>
-              <div>
-                <h2>Box errori</h2>
-                <p>Le carte che hai sbagliato, da correggere quando vuoi.</p>
-              </div>
-            </div>
-            {errorBox.length > 0 ? (
-              <>
-                <ul className="error-list">
-                  {errorBox.slice(0, 6).map((key) => {
-                    const { mode: cardMode, regionName } = parseCardKey(key);
-                    const region = getRegion(regionName);
-                    const diff = effectiveDifficulty(progress, cardMode, regionName);
-                    return (
-                      <li key={key} className="error-item">
-                        <span className="error-mode">
-                          {modeIcon(cardMode)}
-                          {GAME_MODES[cardMode].label}
-                        </span>
-                        <span className="error-region">{region?.shortName ?? regionName}</span>
-                        <span className={`diff-tag ${diff}`}>{DIFFICULTIES[diff].label}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {errorBox.length > 6 ? <p className="muted-note">+{errorBox.length - 6} altre nel box</p> : null}
-                <button type="button" className="primary-action big" onClick={() => onStartErrors(errorBox)}>
-                  <RefreshCw size={18} />
-                  Correggi errori ({errorBox.length})
-                </button>
-              </>
-            ) : (
-              <p className="all-clear">
-                <CheckCircle2 size={16} /> Nessun errore in sospeso. Quando sbagli una carta finisce qui.
-              </p>
-            )}
-          </article>
-        ) : null}
-
-        {homeTab === 'studio' ? (
-          <article className="action-card">
-            <div className="action-head">
-              <span className="action-icon libero" aria-hidden="true">
-                <Compass size={22} />
-              </span>
-              <div>
-                <h2>Allenamento libero</h2>
-                <p>Gioca senza limiti: scegli modalità e difficoltà, con aiuti e mappa interattiva.</p>
-              </div>
-            </div>
-            <div className="segmented small">
-              {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={freeDifficulty === key ? 'active' : ''}
-                  onClick={() => onSelectDifficulty(key)}
-                  title={DIFFICULTIES[key].description}
-                >
-                  {DIFFICULTIES[key].label}
-                </button>
-              ))}
-            </div>
-            <div className="mode-chips home">
-              {(Object.keys(GAME_MODES) as GameModeId[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={freeMode === key ? 'mode-chip active' : 'mode-chip'}
-                  onClick={() => onSelectMode(key)}
-                  title={GAME_MODES[key].description}
-                >
-                  {modeIcon(key)}
-                  <span>{GAME_MODES[key].label}</span>
-                </button>
-              ))}
-            </div>
-            <button type="button" className="secondary-action big" onClick={() => onStartFree(freeMode, freeDifficulty)}>
-              <Route size={18} />
-              Gioca {GAME_MODES[freeMode].label}
-            </button>
-          </article>
-        ) : null}
-      </section>
-
-      <section className="home-overview">
-        <div className="overview-stats">
-          <div className="stat-card primary">
-            <Trophy size={20} />
-            <div>
-              <span>Punteggio</span>
-              <strong>{progress.score}</strong>
-            </div>
-          </div>
-          <div className="stat-card">
-            <Flame size={20} />
-            <div>
-              <span>Miglior serie</span>
-              <strong>{progress.bestStreak}</strong>
-            </div>
-          </div>
-          <div className="stat-card">
-            <Target size={20} />
-            <div>
-              <span>Padroneggiate</span>
-              <strong>{masteredCount}/20</strong>
-            </div>
-          </div>
-
-          {levelInfo ? (
-            <div className="level-box">
-              <div className="level-heading">
-                <span>Livello {levelInfo.current.number}</span>
-                <strong>{levelInfo.current.title}</strong>
-              </div>
-              <div className="progress-track">
-                <span style={{ width: `${levelInfo.percent}%` }} />
-              </div>
-              <p>{levelInfo.next ? levelInfo.next.goal : 'Italia completata: padroneggia ogni carta.'}</p>
-            </div>
-          ) : null}
-
-          <MasteryLegend counts={masteryCounts} />
-
-          <div className="region-focus">
-            <span className="control-label">Regione in focus</span>
-            <h3>{activeRegion.shortName}</h3>
-            <p>{activeRegion.mnemonic}</p>
-          </div>
-
-          <div className="retest-actions">
-            <button type="button" className="danger-action" onClick={onReset}>
-              <RotateCcw size={17} />
-              Riparti da zero
-            </button>
+            ))}
           </div>
         </div>
 
-        <div className="map-panel home" aria-label="Mappa della memoria">
-          <p className="map-caption">Mappa della memoria · {selectedRegion ?? 'tocca una regione'}</p>
-          <ItalyMap
-            selectedRegion={selectedRegion}
-            masteryByRegion={masteryMap}
-            expectsMapClick={false}
-            onRegionSelect={onRegionSelect}
-          />
+        <div className="panel badge-box">
+          <span className="control-label">Badge</span>
+          <div className="badge-list">
+            {BADGES.map((badge) => {
+              const earned = progress.badges.includes(badge.id);
+              return (
+                <span key={badge.id} className={earned ? 'badge is-earned' : 'badge'} title={badge.requirement}>
+                  <Award size={15} />
+                  {badge.label}
+                </span>
+              );
+            })}
+          </div>
         </div>
-      </section>
-    </>
+      </div>
+
+      <div className="home__col">{mapBlock}</div>
+    </div>
+  );
+}
+
+function ReviewCard({
+  toReview,
+  newInSession,
+  dueCount,
+  seenCards,
+  totalCards,
+  onStartReview,
+}: {
+  toReview: number;
+  newInSession: number;
+  dueCount: number;
+  seenCards: number;
+  totalCards: number;
+  onStartReview: () => void;
+}) {
+  return (
+    <article className="panel action-card action-card--brand">
+      <div className="action-card__head">
+        <span className="action-card__icon" aria-hidden="true">
+          <Sparkles size={24} />
+        </span>
+        <div>
+          <h2>Ripasso del giorno</h2>
+          <p>
+            {toReview > 0
+              ? `Sessione di ${toReview} carte: ${newInSession} ${newInSession === 1 ? 'nuova' : 'nuove'}${dueCount > 0 ? ` e ${dueCount} in ripasso` : ''}.`
+              : 'Hai studiato tutte le carte disponibili: nessun ripasso in scadenza ora.'}
+          </p>
+        </div>
+      </div>
+      <div className="metrics">
+        <div>
+          <strong>{newInSession}</strong>
+          <span>nuove in sessione</span>
+        </div>
+        <div>
+          <strong>{dueCount}</strong>
+          <span>in scadenza</span>
+        </div>
+        <div>
+          <strong>
+            {seenCards}
+            <small>/{totalCards}</small>
+          </strong>
+          <span>carte viste</span>
+        </div>
+      </div>
+      <p className="note">
+        <Brain size={15} /> Su ogni carta puoi rispondere a mente: ci pensi, riveli la risposta e ti autovaluti con "Lo
+        sapevo" / "Non lo sapevo".
+      </p>
+      {toReview > 0 ? (
+        <button type="button" className="btn btn--brand btn--block" onClick={onStartReview}>
+          <Sparkles size={18} />
+          Inizia ripasso
+        </button>
+      ) : (
+        <p className="all-clear">
+          <CheckCircle2 size={16} /> Tutto in pari! Hai visto {seenCards}/{totalCards} carte e non ci sono ripassi in
+          scadenza. Torna più tardi o allenati liberamente.
+        </p>
+      )}
+    </article>
+  );
+}
+
+function ErrorBoxCard({
+  progress,
+  errorBox,
+  onStartErrors,
+}: {
+  progress: GameProgress;
+  errorBox: string[];
+  onStartErrors: (keys: string[]) => void;
+}) {
+  return (
+    <article className="panel action-card">
+      <div className="action-card__head">
+        <span className="action-card__icon action-card__icon--danger" aria-hidden="true">
+          <XCircle size={24} />
+        </span>
+        <div>
+          <h2>Box errori</h2>
+          <p>Le carte che hai sbagliato, da correggere quando vuoi.</p>
+        </div>
+      </div>
+      {errorBox.length > 0 ? (
+        <>
+          <ul className="error-list">
+            {errorBox.slice(0, 8).map((key) => {
+              const { mode: cardMode, regionName } = parseCardKey(key);
+              const region = getRegion(regionName);
+              const diff = effectiveDifficulty(progress, cardMode, regionName);
+              return (
+                <li key={key} className="error-item">
+                  <span className="error-item__mode">
+                    {modeIcon(cardMode)}
+                    {GAME_MODES[cardMode].label}
+                  </span>
+                  <span className="error-item__region">{region?.shortName ?? regionName}</span>
+                  <span className={`diff-tag diff-tag--${diff}`}>{DIFFICULTIES[diff].label}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {errorBox.length > 8 ? <p className="note">+{errorBox.length - 8} altre nel box</p> : null}
+          <button type="button" className="btn btn--brand btn--block" onClick={() => onStartErrors(errorBox)}>
+            <RefreshCw size={18} />
+            Correggi errori ({errorBox.length})
+          </button>
+        </>
+      ) : (
+        <p className="all-clear">
+          <CheckCircle2 size={16} /> Nessun errore in sospeso. Quando sbagli una carta finisce qui.
+        </p>
+      )}
+    </article>
+  );
+}
+
+function FreeCard({
+  freeMode,
+  freeDifficulty,
+  onSelectMode,
+  onSelectDifficulty,
+  onStartFree,
+}: {
+  freeMode: GameModeId;
+  freeDifficulty: DifficultyId;
+  onSelectMode: (mode: GameModeId) => void;
+  onSelectDifficulty: (difficulty: DifficultyId) => void;
+  onStartFree: (mode: GameModeId, difficulty: DifficultyId) => void;
+}) {
+  return (
+    <article className="panel action-card">
+      <div className="action-card__head">
+        <span className="action-card__icon" aria-hidden="true">
+          <Swords size={24} />
+        </span>
+        <div>
+          <h2>Allenamento libero</h2>
+          <p>Gioca senza limiti: scegli modalità e difficoltà, con aiuti e mappa interattiva.</p>
+        </div>
+      </div>
+      <span className="control-label">Difficoltà</span>
+      <div className="segmented">
+        {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            className={freeDifficulty === key ? 'is-active' : ''}
+            onClick={() => onSelectDifficulty(key)}
+            title={DIFFICULTIES[key].description}
+          >
+            {DIFFICULTIES[key].label}
+          </button>
+        ))}
+      </div>
+      <span className="control-label">Modalità</span>
+      <div className="mode-chips">
+        {(Object.keys(GAME_MODES) as GameModeId[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            className={freeMode === key ? 'mode-chip is-active' : 'mode-chip'}
+            onClick={() => onSelectMode(key)}
+            title={GAME_MODES[key].description}
+          >
+            {modeIcon(key)}
+            <span>{GAME_MODES[key].label}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="btn btn--brand btn--block" onClick={() => onStartFree(freeMode, freeDifficulty)}>
+        <Route size={18} />
+        Gioca {GAME_MODES[freeMode].label}
+      </button>
+    </article>
   );
 }
 
@@ -1079,14 +1230,14 @@ function SummaryView({
 }) {
   const accuracy = stats.answered > 0 ? Math.round((stats.correct / stats.answered) * 100) : 0;
   return (
-    <section className="summary-screen">
-      <div className="summary-card">
-        <span className="action-icon ripasso" aria-hidden="true">
+    <section className="summary">
+      <div className="panel summary__card">
+        <span className="action-card__icon" aria-hidden="true">
           <Trophy size={26} />
         </span>
         <h2>Sessione completata</h2>
         <p>Hai allenato la memoria. La precisione di oggi è del {accuracy}%.</p>
-        <div className="summary-stats">
+        <div className="metrics metrics--four">
           <div>
             <strong>{stats.correct}</strong>
             <span>corrette</span>
@@ -1106,29 +1257,30 @@ function SummaryView({
         </div>
 
         {showErrorPrompt ? (
-          <div className="summary-prompt">
+          <div className="summary__prompt">
             <p>
-              <XCircle size={16} /> Hai sbagliato {stats.wrong} {stats.wrong === 1 ? 'carta' : 'carte'}. Vuoi ripassarle subito?
+              <XCircle size={16} /> Hai sbagliato {stats.wrong} {stats.wrong === 1 ? 'carta' : 'carte'}. Vuoi ripassarle
+              subito?
             </p>
-            <div className="summary-actions">
-              <button type="button" className="primary-action big" onClick={onReviewNow}>
+            <div className="summary__actions">
+              <button type="button" className="btn btn--brand btn--block" onClick={onReviewNow}>
                 <RefreshCw size={18} />
                 Ripassale ora
               </button>
-              <button type="button" className="outline-action" onClick={onToBox}>
+              <button type="button" className="btn btn--outline" onClick={onToBox}>
                 <Map size={17} />
                 Mettile nel box
               </button>
             </div>
           </div>
         ) : (
-          <div className="summary-actions">
-            <button type="button" className="primary-action big" onClick={onHome}>
+          <div className="summary__actions">
+            <button type="button" className="btn btn--brand btn--block" onClick={onHome}>
               <Map size={18} />
               Torna alla home
             </button>
             {canRepeat ? (
-              <button type="button" className="outline-action" onClick={onAgain}>
+              <button type="button" className="btn btn--outline" onClick={onAgain}>
                 <RefreshCw size={17} />
                 Altro ripasso
               </button>
@@ -1140,25 +1292,46 @@ function SummaryView({
   );
 }
 
-function MasteryLegend({ counts }: { counts: Record<MasteryLevel, number> }) {
+function StatTile({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  tone?: 'brand' | 'accent';
+}) {
   return (
-    <div className="mastery-legend">
-      <span className="control-label">Padronanza</span>
-      <div className="mastery-rows">
-        {MASTERY_ORDER.map((level) => (
-          <span key={level} className={`mastery-row ${MASTERY_META[level].className}`}>
-            <i className="swatch" aria-hidden="true" />
-            {MASTERY_META[level].label}
-            <strong>{counts[level]}</strong>
-          </span>
-        ))}
+    <div className={`stat-tile ${tone ? `stat-tile--${tone}` : ''}`}>
+      <span className="stat-tile__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <div>
+        <span className="stat-tile__label">{label}</span>
+        <strong className="stat-tile__value">{value}</strong>
       </div>
     </div>
   );
 }
 
+function MasteryLegend({ counts }: { counts: Record<MasteryLevel, number> }) {
+  return (
+    <div className="mastery-legend">
+      {MASTERY_ORDER.map((level) => (
+        <span key={level} className="mastery-legend__row">
+          <i className="swatch" style={{ background: `var(${MASTERY_META[level].varName})` }} aria-hidden="true" />
+          {MASTERY_META[level].label}
+          <strong>{counts[level]}</strong>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function modeIcon(mode: GameModeId) {
-  const size = 18;
+  const size = 17;
   if (mode === 'mappa') return <Map size={size} />;
   if (mode === 'viaggio') return <Route size={size} />;
   if (mode === 'capoluoghi') return <Crown size={size} />;
