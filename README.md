@@ -1,6 +1,6 @@
-# Italia Quest: La conquista delle regioni
+# Atlante d'Italia
 
-Web app educativa per imparare regioni italiane, capoluoghi, province, confini e collegamenti geografici tramite missioni progressive.
+Web app educativa per imparare regioni italiane, capoluoghi, province, confini e collegamenti geografici tramite missioni progressive. Interfaccia con cruscotto, navigazione laterale e tema chiaro/scuro.
 
 ## Link pubblico
 
