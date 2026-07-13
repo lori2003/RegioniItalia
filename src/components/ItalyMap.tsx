@@ -24,6 +24,10 @@ type ItalyMapProps = {
   /** Se true mostra i colori di padronanza e i nomi delle regioni note (home).
    *  Se false la mappa resta neutra per non rivelare risposte (durante il gioco). */
   revealMastery?: boolean;
+  /** Regione da illuminare d'oro dopo una risposta corretta (effetto conquista).
+   *  La `key` cambia a ogni conquista cosi l'animazione riparte. */
+  capturedRegion?: string;
+  captureKey?: number;
   onRegionSelect: (regionName: string) => void;
 };
 
@@ -36,6 +40,8 @@ export function ItalyMap({
   masteryByRegion,
   expectsMapClick,
   revealMastery = true,
+  capturedRegion,
+  captureKey,
   onRegionSelect,
 }: ItalyMapProps) {
   const [geoData, setGeoData] = useState<GeoCollection | null>(null);
@@ -96,20 +102,24 @@ export function ItalyMap({
       <rect className="map-sea" x="0" y="0" width={WIDTH} height={HEIGHT} rx="8" />
       {paths.map((path) => {
         const mastery = masteryByRegion[path.name] ?? 'new';
-        const selected = selectedRegion === path.name;
-        const target = targetRegion === path.name;
+        const captured = capturedRegion === path.name;
+        // Dopo una risposta corretta la regione target si "accende": niente
+        // evidenziazione da selezione, si vede solo la conquista dorata.
+        const selected = selectedRegion === path.name && !captured;
+        const target = targetRegion === path.name && !captured;
         const className = [
           'map-region',
           revealMastery ? `is-mastery-${mastery}` : '',
           selected ? 'is-selected' : '',
           target ? 'is-target-candidate' : '',
+          captured ? 'is-captured' : '',
         ]
           .filter(Boolean)
           .join(' ');
 
         return (
           <path
-            key={path.name}
+            key={captured ? `${path.name}-cap-${captureKey ?? 0}` : path.name}
             className={className}
             d={path.d}
             tabIndex={0}

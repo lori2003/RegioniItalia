@@ -29,9 +29,11 @@ import {
   Trophy,
   XCircle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import './App.css';
+import { Celebration } from './components/Celebration';
+import type { CelebrationEvent } from './components/Celebration';
 import { ItalyMap } from './components/ItalyMap';
 import { provinceTypeLabels, REGIONS } from './data/regions';
 import {
@@ -48,6 +50,7 @@ import {
   getLevelInfo,
   getMasteryMap,
   getRegion,
+  getRegionMastery,
   isAnswerCorrect,
   normalizeAnswer,
   parseCardKey,
@@ -79,6 +82,7 @@ const MASTERY_META: Record<MasteryLevel, { label: string; varName: string }> = {
   mastered: { label: 'Padroneggiata', varName: '--m-mastered' },
 };
 const MASTERY_ORDER: MasteryLevel[] = ['new', 'learning', 'young', 'mature', 'mastered'];
+const STREAK_MILESTONES = new Set([3, 5, 10, 15, 20, 30, 50]);
 
 const SECTIONS: { id: Section; label: string; icon: ReactNode }[] = [
   { id: 'cruscotto', label: 'Cruscotto', icon: <LayoutDashboard size={19} /> },
@@ -138,6 +142,8 @@ function App() {
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>();
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
+  const celebrationSeq = useRef(0);
 
   const levelInfo = useMemo(() => (progress ? getLevelInfo(progress) : null), [progress]);
   const masteryMap = useMemo(() => (progress ? getMasteryMap(progress) : {}), [progress]);
@@ -188,6 +194,7 @@ function App() {
     setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
     setSessionWrongKeys([]);
     setAnswerStyle('click');
+    setCelebration(null);
     loadCardChallenge(review.queue[0], progress);
     setView('game');
   }, [loadCardChallenge, progress, review]);
@@ -201,6 +208,7 @@ function App() {
       setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
       setSessionWrongKeys([]);
       setAnswerStyle('click');
+      setCelebration(null);
       loadCardChallenge(keys[0], fromProgress);
       setView('game');
     },
@@ -223,6 +231,7 @@ function App() {
       setSessionWrongKeys([]);
       setAnswerStyle('click');
       setSelfTestRevealed(false);
+      setCelebration(null);
       setView('game');
     },
     [progress],
@@ -235,6 +244,28 @@ function App() {
       const key = cardKey(challenge.mode, challenge.targetRegion);
       const wasNew = !progress.memory?.[key];
       const nextProgress = applyMissionResult(progress, challenge, activeDifficulty, correct, sessionKind);
+
+      if (correct) {
+        const region = getRegion(challenge.targetRegion);
+        const shortName = region?.shortName ?? challenge.targetRegion;
+        const newlyUnlocked =
+          !progress.unlockedRegions.includes(challenge.targetRegion) &&
+          nextProgress.unlockedRegions.includes(challenge.targetRegion);
+        const newlyMastered =
+          getRegionMastery(nextProgress, challenge.targetRegion) === 'mastered' &&
+          getRegionMastery(progress, challenge.targetRegion) !== 'mastered';
+        const streak = nextProgress.streak;
+        celebrationSeq.current += 1;
+        setCelebration({
+          id: celebrationSeq.current,
+          points: DIFFICULTIES[activeDifficulty].points,
+          streak,
+          captured: newlyUnlocked ? shortName : undefined,
+          mastered: newlyMastered ? shortName : undefined,
+          milestone: STREAK_MILESTONES.has(streak) ? streak : undefined,
+        });
+      }
+
       const base = customMessage
         ? `${customMessage} La risposta era ${challenge.correctDisplay}.`
         : correct
@@ -269,6 +300,7 @@ function App() {
 
     const nextIndex = sessionIndex + 1;
     if (nextIndex >= sessionQueue.length) {
+      setCelebration(null);
       setView('summary');
       return;
     }
@@ -396,6 +428,7 @@ function App() {
   function goHome() {
     setView('home');
     setFeedback(null);
+    setCelebration(null);
   }
 
   function summaryReviewNow() {
@@ -468,8 +501,11 @@ function App() {
         ? 'Riepilogo sessione'
         : SECTIONS.find((item) => item.id === section)?.label ?? 'Cruscotto';
 
+  const streakLevel = progress.streak >= 10 ? 'is-blazing' : progress.streak >= 5 ? 'is-hot' : '';
+
   return (
     <div className={`atlas ${navOpen ? 'is-nav-open' : ''}`}>
+      {celebration ? <Celebration key={celebration.id} event={celebration} /> : null}
       <button
         type="button"
         className="atlas__scrim"
@@ -530,7 +566,11 @@ function App() {
             <h1>{pageTitle}</h1>
           </div>
           <div className="atlas__topbar-actions">
-            <span className="chip chip--streak" title="Serie di risposte corrette">
+            <span
+              key={`streak-${progress.streak}`}
+              className={`chip chip--streak ${streakLevel}`}
+              title="Serie di risposte corrette"
+            >
               <Flame size={15} />
               {progress.streak}
             </span>
@@ -824,6 +864,8 @@ function App() {
                     masteryByRegion={masteryMap}
                     expectsMapClick={challenge.expectsMapClick && !feedback && !isSelfTestMappa}
                     revealMastery={false}
+                    capturedRegion={feedback?.correct ? challenge.targetRegion : undefined}
+                    captureKey={celebration?.id}
                     onRegionSelect={handleRegionSelect}
                   />
                 </div>
