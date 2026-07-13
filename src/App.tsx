@@ -10,6 +10,7 @@ import {
   Eye,
   Flame,
   Gauge,
+  Landmark,
   LayoutDashboard,
   Lightbulb,
   LockKeyhole,
@@ -35,6 +36,7 @@ import './App.css';
 import { Celebration } from './components/Celebration';
 import type { CelebrationEvent } from './components/Celebration';
 import { ItalyMap } from './components/ItalyMap';
+import { RomaMap } from './components/RomaMap';
 import { provinceTypeLabels, REGIONS } from './data/regions';
 import {
   addToReviewBox,
@@ -70,7 +72,7 @@ import type {
 } from './types';
 
 type View = 'home' | 'game' | 'summary';
-type Section = 'cruscotto' | 'ripasso' | 'errori' | 'allenamento';
+type Section = 'cruscotto' | 'ripasso' | 'errori' | 'allenamento' | 'roma';
 type AnswerStyle = 'click' | 'mente';
 type SessionStats = { answered: number; correct: number; wrong: number; newCards: number };
 
@@ -89,6 +91,7 @@ const SECTIONS: { id: Section; label: string; icon: ReactNode }[] = [
   { id: 'ripasso', label: 'Ripasso', icon: <Sparkles size={19} /> },
   { id: 'errori', label: 'Box errori', icon: <XCircle size={19} /> },
   { id: 'allenamento', label: 'Allenamento', icon: <Swords size={19} /> },
+  { id: 'roma', label: 'Studia Roma', icon: <Landmark size={19} /> },
 ];
 
 function ThemeToggle({ theme, onToggle }: { theme: 'light' | 'dark'; onToggle: () => void }) {
@@ -945,6 +948,10 @@ function HomeView({
       <MasteryLegend counts={masteryCounts} />
     </div>
   );
+
+  if (section === 'roma') {
+    return <RomaMap />;
+  }
 
   if (section === 'ripasso') {
     return (

@@ -1574,3 +1574,393 @@ input:focus-visible {
     flex-direction: column;
   }
 }
+
+/* ==========================================================================
+   STUDIA ROMA
+   ========================================================================== */
+.roma {
+  display: grid;
+  gap: 1rem;
+}
+.roma__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.roma__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+}
+.roma__intro p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+.roma__toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex: none;
+}
+.roma__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.roma__toggle.is-on {
+  border-color: transparent;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.roma__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.roma__cat {
+  --cat: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.roma__cat:hover {
+  border-color: var(--cat);
+}
+.roma__cat.is-active {
+  border-color: var(--cat);
+  background: color-mix(in srgb, var(--cat) 16%, var(--surface));
+  color: var(--text);
+}
+.roma__cat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cat);
+}
+
+.roma__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.roma__map-wrap {
+  padding: 0.6rem;
+  overflow: hidden;
+}
+.roma-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.roma-map__land {
+  fill: var(--map-blank);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.roma-zone {
+  fill: var(--zone);
+  fill-opacity: 0.26;
+  stroke: var(--zone);
+  stroke-opacity: 0.55;
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill-opacity 0.18s ease;
+}
+.roma-zone:hover {
+  fill-opacity: 0.4;
+}
+.roma-zone.is-active {
+  fill-opacity: 0.5;
+  stroke-width: 2.5;
+}
+.roma-zone__label {
+  fill: var(--text-soft);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
+.roma-walls {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-dasharray: 3 7;
+  stroke-opacity: 0.4;
+  pointer-events: none;
+}
+
+.roma-river {
+  fill: none;
+  stroke: #58a6df;
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.roma-river--minor {
+  stroke-width: 5;
+  opacity: 0.6;
+}
+
+.roma-street path {
+  fill: none;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.roma-street__label {
+  fill: var(--muted);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.roma-street--centro path,
+.roma-street--lungotevere path {
+  stroke: var(--text-soft);
+  stroke-width: 3;
+}
+.roma-street--lungotevere path {
+  stroke-opacity: 0.45;
+  stroke-dasharray: 2 5;
+}
+.roma-street--consolare path {
+  stroke: #b3763e;
+  stroke-width: 2.5;
+  stroke-dasharray: 8 5;
+}
+.roma-street--raccordo path {
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-dasharray: 10 8;
+  stroke-opacity: 0.55;
+}
+
+.roma-pin {
+  --cat: var(--brand);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.roma-pin__halo {
+  fill: var(--cat);
+  opacity: 0.16;
+  transition: r 0.15s ease, opacity 0.15s ease;
+}
+.roma-pin:hover .roma-pin__halo,
+.roma-pin.is-active .roma-pin__halo {
+  opacity: 0.32;
+}
+.roma-pin__dot {
+  fill: var(--cat);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.roma-pin.is-active .roma-pin__dot {
+  stroke-width: 3;
+}
+.roma-pin__label {
+  fill: var(--text);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 600;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.roma-pin.is-dimmed {
+  opacity: 0.22;
+}
+.roma-pin:focus-visible {
+  outline: none;
+}
+.roma-pin:focus-visible .roma-pin__halo {
+  opacity: 0.32;
+  stroke: var(--brand);
+  stroke-width: 2;
+}
+
+.roma__panel {
+  padding: 1.2rem;
+  position: sticky;
+  top: 1rem;
+  min-height: 320px;
+}
+.roma__detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.roma__detail-head h3 {
+  margin: 0.3rem 0 0.15rem;
+  font-size: 1.3rem;
+}
+.roma__eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.roma__tagline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.roma__desc {
+  margin: 0.75rem 0 1rem;
+  color: var(--text-soft);
+  line-height: 1.6;
+  font-size: 0.94rem;
+}
+.roma__chip {
+  --cat: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cat) 18%, transparent);
+  color: color-mix(in srgb, var(--cat) 72%, var(--text));
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.roma__close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.roma__close:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.roma__tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.roma__tip svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.roma__list,
+.roma__zones-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.roma__list button,
+.roma__zones-list button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.roma__list button:hover,
+.roma__zones-list button:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.roma__zones-list button span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.roma__zones-list button small {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+.roma__list-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.roma__hint-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .roma__grid {
+    grid-template-columns: 1fr;
+  }
+  .roma__panel {
+    position: static;
+  }
+}
