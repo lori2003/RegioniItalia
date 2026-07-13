@@ -39,7 +39,6 @@ import { ItalyMap } from './components/ItalyMap';
 import { RomaMap } from './components/RomaMap';
 import { provinceTypeLabels, REGIONS } from './data/regions';
 import {
-  addToReviewBox,
   applyMissionResult,
   BADGES,
   buildReviewSession,
@@ -72,7 +71,7 @@ import type {
 } from './types';
 
 type View = 'home' | 'game' | 'summary';
-type Section = 'cruscotto' | 'ripasso' | 'errori' | 'allenamento' | 'roma';
+type Section = 'cruscotto' | 'ripasso' | 'allenamento' | 'roma';
 type AnswerStyle = 'click' | 'mente';
 type SessionStats = { answered: number; correct: number; wrong: number; newCards: number };
 
@@ -89,7 +88,6 @@ const STREAK_MILESTONES = new Set([3, 5, 10, 15, 20, 30, 50]);
 const SECTIONS: { id: Section; label: string; icon: ReactNode }[] = [
   { id: 'cruscotto', label: 'Cruscotto', icon: <LayoutDashboard size={19} /> },
   { id: 'ripasso', label: 'Ripasso', icon: <Sparkles size={19} /> },
-  { id: 'errori', label: 'Box errori', icon: <XCircle size={19} /> },
   { id: 'allenamento', label: 'Allenamento', icon: <Swords size={19} /> },
   { id: 'roma', label: 'Studia Roma', icon: <Landmark size={19} /> },
 ];
@@ -133,7 +131,6 @@ function App() {
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState<SessionStats>({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
-  const [sessionWrongKeys, setSessionWrongKeys] = useState<string[]>([]);
   const [answerStyle, setAnswerStyle] = useState<AnswerStyle>('click');
   const [selfTestRevealed, setSelfTestRevealed] = useState(false);
 
@@ -195,28 +192,11 @@ function App() {
     setSessionQueue(review.queue);
     setSessionIndex(0);
     setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
-    setSessionWrongKeys([]);
     setAnswerStyle('click');
     setCelebration(null);
     loadCardChallenge(review.queue[0], progress);
     setView('game');
   }, [loadCardChallenge, progress, review]);
-
-  const startErrorSession = useCallback(
-    (keys: string[], fromProgress: GameProgress) => {
-      if (keys.length === 0) return;
-      setSessionKind('errori');
-      setSessionQueue(keys);
-      setSessionIndex(0);
-      setSessionStats({ answered: 0, correct: 0, wrong: 0, newCards: 0 });
-      setSessionWrongKeys([]);
-      setAnswerStyle('click');
-      setCelebration(null);
-      loadCardChallenge(keys[0], fromProgress);
-      setView('game');
-    },
-    [loadCardChallenge],
-  );
 
   const startFree = useCallback(
     (nextMode: GameModeId, nextDifficulty: DifficultyId) => {
@@ -231,7 +211,6 @@ function App() {
       setFeedback(null);
       setTypedAnswer('');
       setSelectedRegion(undefined);
-      setSessionWrongKeys([]);
       setAnswerStyle('click');
       setSelfTestRevealed(false);
       setCelebration(null);
@@ -282,7 +261,6 @@ function App() {
         wrong: stats.wrong + (correct ? 0 : 1),
         newCards: stats.newCards + (wasNew && sessionKind === 'ripasso' ? 1 : 0),
       }));
-      if (!correct) setSessionWrongKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
       void persist(nextProgress);
     },
     [activeDifficulty, challenge, feedback, persist, progress, sessionKind],
@@ -422,7 +400,9 @@ function App() {
   }
 
   function goToSection(next: Section) {
-    setSection(next);
+    // Finché ci sono carte sbagliate da correggere si può stare solo sul ripasso.
+    const locked = (progress?.reviewBox?.length ?? 0) > 0;
+    setSection(locked && next !== 'ripasso' ? 'ripasso' : next);
     setView('home');
     setFeedback(null);
     setNavOpen(false);
@@ -432,21 +412,6 @@ function App() {
     setView('home');
     setFeedback(null);
     setCelebration(null);
-  }
-
-  function summaryReviewNow() {
-    if (!progress) return;
-    const next = addToReviewBox(progress, sessionWrongKeys);
-    void persist(next);
-    startErrorSession(sessionWrongKeys, next);
-  }
-
-  function summaryToBox() {
-    if (!progress) return;
-    const next = addToReviewBox(progress, sessionWrongKeys);
-    void persist(next);
-    setSessionWrongKeys([]);
-    goHome();
   }
 
   if (!progress) {
@@ -493,16 +458,17 @@ function App() {
   }
 
   const masteredCount = masteryCounts.mastered;
+  // Ripasso = solo carte sbagliate. Se ne hai, sei bloccato lì finché non le correggi.
+  const mustReview = (progress.reviewBox?.length ?? 0) > 0;
+  const effectiveSection: Section = mustReview ? 'ripasso' : section;
   const pageTitle =
     view === 'game'
       ? sessionKind === 'libero'
         ? 'Allenamento libero'
-        : sessionKind === 'errori'
-          ? 'Correzione errori'
-          : 'Ripasso del giorno'
+        : 'Ripasso'
       : view === 'summary'
         ? 'Riepilogo sessione'
-        : SECTIONS.find((item) => item.id === section)?.label ?? 'Cruscotto';
+        : SECTIONS.find((item) => item.id === effectiveSection)?.label ?? 'Cruscotto';
 
   const streakLevel = progress.streak >= 10 ? 'is-blazing' : progress.streak >= 5 ? 'is-hot' : '';
 
@@ -529,17 +495,25 @@ function App() {
         </button>
 
         <nav className="atlas__nav">
-          {SECTIONS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`atlas__nav-item ${view === 'home' && section === item.id ? 'is-active' : ''}`}
-              onClick={() => goToSection(item.id)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {SECTIONS.map((item) => {
+            const locked = mustReview && item.id !== 'ripasso';
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`atlas__nav-item ${view === 'home' && effectiveSection === item.id ? 'is-active' : ''} ${
+                  locked ? 'is-locked' : ''
+                }`}
+                onClick={() => goToSection(item.id)}
+                disabled={locked}
+                title={locked ? 'Completa il ripasso per sbloccare' : undefined}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+                {locked ? <LockKeyhole size={13} className="atlas__nav-lock" /> : null}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="atlas__rail-foot">
@@ -589,19 +563,17 @@ function App() {
           {view === 'home' ? (
             <HomeView
               progress={progress}
-              review={review}
               levelInfo={levelInfo}
               masteryMap={masteryMap}
               masteryCounts={masteryCounts}
               masteredCount={masteredCount}
-              section={section}
+              section={effectiveSection}
               freeMode={mode}
               freeDifficulty={freeDifficulty}
               selectedRegion={selectedRegion}
               activeRegion={activeRegion}
               onStartReview={startReview}
               onStartFree={startFree}
-              onStartErrors={(keys) => startErrorSession(keys, progress)}
               onSelectMode={setMode}
               onSelectDifficulty={setFreeDifficulty}
               onRegionSelect={setSelectedRegion}
@@ -611,12 +583,9 @@ function App() {
             <SummaryView
               stats={sessionStats}
               masteredCount={masteredCount}
-              showErrorPrompt={sessionKind === 'ripasso' && sessionWrongKeys.length > 0}
+              remaining={review?.queue.length ?? 0}
               onHome={goHome}
-              onReviewNow={summaryReviewNow}
-              onToBox={summaryToBox}
-              onAgain={startReview}
-              canRepeat={Boolean(review && review.queue.length > 0)}
+              onContinue={startReview}
             />
           ) : (
             <section className="game">
@@ -888,7 +857,6 @@ function App() {
 
 type HomeViewProps = {
   progress: GameProgress;
-  review: ReturnType<typeof buildReviewSession> | null;
   levelInfo: ReturnType<typeof getLevelInfo> | null;
   masteryMap: Record<string, MasteryLevel>;
   masteryCounts: Record<MasteryLevel, number>;
@@ -900,7 +868,6 @@ type HomeViewProps = {
   activeRegion: RegionData;
   onStartReview: () => void;
   onStartFree: (mode: GameModeId, difficulty: DifficultyId) => void;
-  onStartErrors: (keys: string[]) => void;
   onSelectMode: (mode: GameModeId) => void;
   onSelectDifficulty: (difficulty: DifficultyId) => void;
   onRegionSelect: (regionName: string) => void;
@@ -909,7 +876,6 @@ type HomeViewProps = {
 
 function HomeView({
   progress,
-  review,
   levelInfo,
   masteryMap,
   masteryCounts,
@@ -921,18 +887,13 @@ function HomeView({
   activeRegion,
   onStartReview,
   onStartFree,
-  onStartErrors,
   onSelectMode,
   onSelectDifficulty,
   onRegionSelect,
   onGoSection,
 }: HomeViewProps) {
-  const dueCount = review?.dueCount ?? 0;
-  const newInSession = review?.newInSession ?? 0;
-  const toReview = review?.queue.length ?? 0;
-  const totalCards = review?.totalCards ?? 0;
-  const seenCards = totalCards - (review?.unseenTotal ?? totalCards);
-  const errorBox = progress.reviewBox ?? [];
+  const reviewCards = progress.reviewBox ?? [];
+  const toReview = reviewCards.length;
 
   const mapBlock = (
     <div className="panel map-panel map-panel--home">
@@ -956,23 +917,7 @@ function HomeView({
   if (section === 'ripasso') {
     return (
       <div className="home home--single">
-        <ReviewCard
-          toReview={toReview}
-          newInSession={newInSession}
-          dueCount={dueCount}
-          seenCards={seenCards}
-          totalCards={totalCards}
-          onStartReview={onStartReview}
-        />
-        {mapBlock}
-      </div>
-    );
-  }
-
-  if (section === 'errori') {
-    return (
-      <div className="home home--single">
-        <ErrorBoxCard progress={progress} errorBox={errorBox} onStartErrors={onStartErrors} />
+        <ReviewCard progress={progress} reviewCards={reviewCards} onStartReview={onStartReview} />
         {mapBlock}
       </div>
     );
@@ -1023,15 +968,8 @@ function HomeView({
           <button type="button" className="quick-action quick-action--brand" onClick={() => onGoSection('ripasso')}>
             <Sparkles size={20} />
             <span>
-              <strong>Ripasso del giorno</strong>
-              <small>{toReview > 0 ? `${toReview} carte pronte` : 'tutto in pari'}</small>
-            </span>
-          </button>
-          <button type="button" className="quick-action" onClick={() => onGoSection('errori')}>
-            <XCircle size={20} />
-            <span>
-              <strong>Box errori</strong>
-              <small>{errorBox.length > 0 ? `${errorBox.length} da correggere` : 'nessun errore'}</small>
+              <strong>Ripasso</strong>
+              <small>{toReview > 0 ? `${toReview} da correggere` : 'nessun errore'}</small>
             </span>
           </button>
           <button type="button" className="quick-action" onClick={() => onGoSection('allenamento')}>
@@ -1039,6 +977,13 @@ function HomeView({
             <span>
               <strong>Allenamento libero</strong>
               <small>senza limiti</small>
+            </span>
+          </button>
+          <button type="button" className="quick-action" onClick={() => onGoSection('roma')}>
+            <Landmark size={20} />
+            <span>
+              <strong>Studia Roma</strong>
+              <small>esplora la città</small>
             </span>
           </button>
         </div>
@@ -1078,20 +1023,15 @@ function HomeView({
 }
 
 function ReviewCard({
-  toReview,
-  newInSession,
-  dueCount,
-  seenCards,
-  totalCards,
+  progress,
+  reviewCards,
   onStartReview,
 }: {
-  toReview: number;
-  newInSession: number;
-  dueCount: number;
-  seenCards: number;
-  totalCards: number;
+  progress: GameProgress;
+  reviewCards: string[];
   onStartReview: () => void;
 }) {
+  const count = reviewCards.length;
   return (
     <article className="panel action-card action-card--brand">
       <div className="action-card__head">
@@ -1099,74 +1039,21 @@ function ReviewCard({
           <Sparkles size={24} />
         </span>
         <div>
-          <h2>Ripasso del giorno</h2>
-          <p>
-            {toReview > 0
-              ? `Sessione di ${toReview} carte: ${newInSession} ${newInSession === 1 ? 'nuova' : 'nuove'}${dueCount > 0 ? ` e ${dueCount} in ripasso` : ''}.`
-              : 'Hai studiato tutte le carte disponibili: nessun ripasso in scadenza ora.'}
-          </p>
+          <h2>Ripasso</h2>
+          <p>Solo le carte che hai sbagliato. Correggile tutte per sbloccare le altre modalità.</p>
         </div>
       </div>
-      <div className="metrics">
-        <div>
-          <strong>{newInSession}</strong>
-          <span>nuove in sessione</span>
-        </div>
-        <div>
-          <strong>{dueCount}</strong>
-          <span>in scadenza</span>
-        </div>
-        <div>
-          <strong>
-            {seenCards}
-            <small>/{totalCards}</small>
-          </strong>
-          <span>carte viste</span>
-        </div>
-      </div>
-      <p className="note">
-        <Brain size={15} /> Su ogni carta puoi rispondere a mente: ci pensi, riveli la risposta e ti autovaluti con "Lo
-        sapevo" / "Non lo sapevo".
-      </p>
-      {toReview > 0 ? (
-        <button type="button" className="btn btn--brand btn--block" onClick={onStartReview}>
-          <Sparkles size={18} />
-          Inizia ripasso
-        </button>
-      ) : (
-        <p className="all-clear">
-          <CheckCircle2 size={16} /> Tutto in pari! Hai visto {seenCards}/{totalCards} carte e non ci sono ripassi in
-          scadenza. Torna più tardi o allenati liberamente.
-        </p>
-      )}
-    </article>
-  );
-}
-
-function ErrorBoxCard({
-  progress,
-  errorBox,
-  onStartErrors,
-}: {
-  progress: GameProgress;
-  errorBox: string[];
-  onStartErrors: (keys: string[]) => void;
-}) {
-  return (
-    <article className="panel action-card">
-      <div className="action-card__head">
-        <span className="action-card__icon action-card__icon--danger" aria-hidden="true">
-          <XCircle size={24} />
-        </span>
-        <div>
-          <h2>Box errori</h2>
-          <p>Le carte che hai sbagliato, da correggere quando vuoi.</p>
-        </div>
-      </div>
-      {errorBox.length > 0 ? (
+      {count > 0 ? (
         <>
+          <div className="review-lock">
+            <LockKeyhole size={16} />
+            <span>
+              Hai <strong>{count}</strong> {count === 1 ? 'carta' : 'carte'} da correggere. Finché non le sistemi, le
+              altre modalità restano bloccate.
+            </span>
+          </div>
           <ul className="error-list">
-            {errorBox.slice(0, 8).map((key) => {
+            {reviewCards.slice(0, 8).map((key) => {
               const { mode: cardMode, regionName } = parseCardKey(key);
               const region = getRegion(regionName);
               const diff = effectiveDifficulty(progress, cardMode, regionName);
@@ -1182,15 +1069,20 @@ function ErrorBoxCard({
               );
             })}
           </ul>
-          {errorBox.length > 8 ? <p className="note">+{errorBox.length - 8} altre nel box</p> : null}
-          <button type="button" className="btn btn--brand btn--block" onClick={() => onStartErrors(errorBox)}>
+          {count > 8 ? <p className="note">+{count - 8} altre da correggere</p> : null}
+          <p className="note">
+            <Brain size={15} /> Puoi rispondere a mente: ci pensi, riveli la risposta e ti autovaluti con "Lo sapevo" /
+            "Non lo sapevo".
+          </p>
+          <button type="button" className="btn btn--brand btn--block" onClick={onStartReview}>
             <RefreshCw size={18} />
-            Correggi errori ({errorBox.length})
+            Inizia ripasso ({count})
           </button>
         </>
       ) : (
         <p className="all-clear">
-          <CheckCircle2 size={16} /> Nessun errore in sospeso. Quando sbagli una carta finisce qui.
+          <CheckCircle2 size={16} /> Nessuna carta da ripassare: sei in pari! Ora puoi allenarti liberamente o studiare
+          Roma.
         </p>
       )}
     </article>
@@ -1261,21 +1153,15 @@ function FreeCard({
 function SummaryView({
   stats,
   masteredCount,
-  showErrorPrompt,
+  remaining,
   onHome,
-  onReviewNow,
-  onToBox,
-  onAgain,
-  canRepeat,
+  onContinue,
 }: {
   stats: SessionStats;
   masteredCount: number;
-  showErrorPrompt: boolean;
+  remaining: number;
   onHome: () => void;
-  onReviewNow: () => void;
-  onToBox: () => void;
-  onAgain: () => void;
-  canRepeat: boolean;
+  onContinue: () => void;
 }) {
   const accuracy = stats.answered > 0 ? Math.round((stats.correct / stats.answered) * 100) : 0;
   return (
@@ -1296,8 +1182,8 @@ function SummaryView({
             <span>sbagliate</span>
           </div>
           <div>
-            <strong>{stats.newCards}</strong>
-            <span>nuove esplorate</span>
+            <strong>{remaining}</strong>
+            <span>da correggere</span>
           </div>
           <div>
             <strong>{masteredCount}/20</strong>
@@ -1305,35 +1191,25 @@ function SummaryView({
           </div>
         </div>
 
-        {showErrorPrompt ? (
+        {remaining > 0 ? (
           <div className="summary__prompt">
             <p>
-              <XCircle size={16} /> Hai sbagliato {stats.wrong} {stats.wrong === 1 ? 'carta' : 'carte'}. Vuoi ripassarle
-              subito?
+              <LockKeyhole size={16} /> Hai ancora {remaining} {remaining === 1 ? 'carta' : 'carte'} da correggere.
+              Completa il ripasso per sbloccare le altre modalità.
             </p>
             <div className="summary__actions">
-              <button type="button" className="btn btn--brand btn--block" onClick={onReviewNow}>
+              <button type="button" className="btn btn--brand btn--block" onClick={onContinue}>
                 <RefreshCw size={18} />
-                Ripassale ora
-              </button>
-              <button type="button" className="btn btn--outline" onClick={onToBox}>
-                <Map size={17} />
-                Mettile nel box
+                Continua il ripasso
               </button>
             </div>
           </div>
         ) : (
           <div className="summary__actions">
             <button type="button" className="btn btn--brand btn--block" onClick={onHome}>
-              <Map size={18} />
-              Torna alla home
+              <CheckCircle2 size={18} />
+              Tutto corretto! Torna alla home
             </button>
-            {canRepeat ? (
-              <button type="button" className="btn btn--outline" onClick={onAgain}>
-                <RefreshCw size={17} />
-                Altro ripasso
-              </button>
-            ) : null}
           </div>
         )}
       </div>

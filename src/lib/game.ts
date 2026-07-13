@@ -258,10 +258,6 @@ export function getAllCardKeys() {
   );
 }
 
-function isCardDue(card: MemoryCard, now = Date.now()) {
-  return new Date(card.due).getTime() <= now;
-}
-
 export type ReviewSession = {
   queue: string[];
   dueCount: number;
@@ -272,38 +268,16 @@ export type ReviewSession = {
 };
 
 /** Costruisce la sessione: scadute (piu vecchie prima) + nuove fino a riempire la sessione. */
+/** Il ripasso e' composto SOLO dalle carte sbagliate (reviewBox), mai altre. */
 export function buildReviewSession(progress: GameProgress): ReviewSession {
-  const now = Date.now();
+  const queue = [...(progress.reviewBox ?? [])];
   const allKeys = getAllCardKeys();
-  const due: string[] = [];
-  const fresh: string[] = [];
-
-  allKeys.forEach((key) => {
-    const card = progress.memory?.[key];
-    if (!card) {
-      fresh.push(key);
-      return;
-    }
-    if (isCardDue(card, now)) due.push(key);
-  });
-
-  due.sort((a, b) => {
-    const ca = progress.memory[a];
-    const cb = progress.memory[b];
-    return new Date(ca.due).getTime() - new Date(cb.due).getTime() || ca.box - cb.box;
-  });
-
-  const dueSlice = due.slice(0, SESSION_SIZE);
-  const newToAdd = Math.min(fresh.length, Math.max(0, SESSION_SIZE - dueSlice.length));
-  const newCards = shuffle(fresh).slice(0, newToAdd);
-  const queue = shuffle([...dueSlice, ...newCards]);
-
   const cards = Object.values(progress.memory ?? {});
   return {
     queue,
-    dueCount: due.length,
-    newInSession: newCards.length,
-    unseenTotal: fresh.length,
+    dueCount: queue.length,
+    newInSession: 0,
+    unseenTotal: 0,
     totalCards: allKeys.length,
     masteredCount: cards.filter((card) => card.box >= MAX_BOX).length,
   };
@@ -664,9 +638,14 @@ export function applyMissionResult(
   existing.due = startOfTodayPlusDays(LEITNER_INTERVALS_DAYS[existing.box]);
   next.memory[key] = existing;
 
-  // Carta corretta: esce dal box errori (e' stata corretta).
-  if (correct && next.reviewBox?.length) {
-    next.reviewBox = next.reviewBox.filter((item) => item !== key);
+  // Il ripasso e' composto solo dalle carte sbagliate: se sbagli entra,
+  // quando la correggi esce. Vale per ogni modalita (ripasso, libero, ...).
+  if (correct) {
+    if (next.reviewBox?.length) next.reviewBox = next.reviewBox.filter((item) => item !== key);
+  } else {
+    const box = new Set(next.reviewBox ?? []);
+    box.add(key);
+    next.reviewBox = [...box];
   }
 
   if (isNewCard && sessionKind === 'ripasso') {

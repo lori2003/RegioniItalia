@@ -361,6 +361,35 @@ input:focus-visible {
   color: var(--brand);
   border-color: color-mix(in srgb, var(--brand) 30%, transparent);
 }
+.atlas__nav-item.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.atlas__nav-item.is-locked:hover {
+  background: none;
+  color: var(--text-soft);
+}
+.atlas__nav-lock {
+  margin-left: auto;
+}
+
+/* Avviso di blocco nel ripasso */
+.review-lock {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.review-lock svg {
+  flex: none;
+  margin-top: 2px;
+}
 
 .atlas__rail-foot {
   margin-top: auto;
