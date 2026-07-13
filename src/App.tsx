@@ -353,6 +353,28 @@ function App() {
     setIsLoadingProgress(false);
   }
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  /** Forza il caricamento dell'ultima versione pubblicata su GitHub Pages,
+   *  scavalcando la cache (service worker, Cache Storage e cache HTML). */
+  async function forceUpdate() {
+    setIsRefreshing(true);
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+    } catch {
+      // se qualcosa non e' disponibile, ricarichiamo comunque
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('v', Date.now().toString());
+    window.location.replace(url.toString());
+  }
+
   function submitTypedAnswer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!typedAnswer.trim()) return;
@@ -418,6 +440,16 @@ function App() {
     return (
       <main className="login">
         <div className="login__topbar">
+          <button
+            type="button"
+            className="btn btn--ghost login__refresh"
+            onClick={forceUpdate}
+            disabled={isRefreshing}
+            title="Scarica l'ultima versione pubblicata (svuota la cache)"
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'is-spinning' : ''} />
+            {isRefreshing ? 'Aggiorno...' : 'Aggiorna'}
+          </button>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </div>
         <section className="login__card" aria-labelledby="login-title">
